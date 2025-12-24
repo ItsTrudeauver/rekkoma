@@ -1,38 +1,33 @@
-/**
- * Normalizes genre strings to ensure consistent grouping.
- * e.g., "alternative rock" -> "rock"
- * e.g., "k-pop" -> "k-pop"
- */
+// src/utils/cleaning.js
 
-// We map specific sub-genres to broader "Macro Genres" for better questions
-const MACRO_GENRES = {
-  'rock': ['rock', 'punk', 'metal', 'grunge', 'indie rock'],
-  'pop': ['pop', 'indie pop', 'k-pop', 'j-pop', 'electropop'],
-  'electronic': ['electronic', 'techno', 'house', 'edm', 'synth', 'ambient'],
-  'hip-hop': ['hip hop', 'rap', 'trap', 'r&b', 'drill'],
-  'jazz': ['jazz', 'bebop', 'swing', 'soul', 'blues'],
-  'classical': ['classical', 'orchestra', 'piano', 'opera'],
-  'folk': ['folk', 'country', 'singer-songwriter', 'acoustic'],
-};
+// A small blacklist of garbage tags that aren't genres
+const JUNK_TAGS = [
+  'seen live', 'favorites', 'owned', 'my library', 'spotify', 
+  'all', 'favorite', 'albums I own', 'unheard'
+];
 
 export function cleanGenre(rawGenre) {
   if (!rawGenre) return null;
-  const lower = rawGenre.toLowerCase().trim();
+  
+  // 1. Basic normalization
+  let clean = rawGenre.toLowerCase().trim();
 
-  // 1. Check for Macro Genre matches
-  for (const [macro, subs] of Object.entries(MACRO_GENRES)) {
-    if (lower.includes(macro) || subs.some(s => lower.includes(s))) {
-      return macro; // Normalize "indie rock" -> "rock"
-    }
-  }
+  // 2. Remove Junk
+  if (JUNK_TAGS.includes(clean)) return null;
 
-  // 2. Fallback: Return the raw genre if it's distinct enough (e.g., "reggae")
-  return lower;
+  // 3. Synonym Mapping (Only for identical things)
+  // We don't flatten subgenres, just fix spelling.
+  if (clean === 'hip-hop') return 'hip hop';
+  if (clean === 'r&b') return 'r&b'; 
+  if (clean === 'drum and bass') return 'dnb';
+
+  // 4. "Trust the Source"
+  // We return the specific genre (e.g., "math rock")
+  // The mining engine (inferVibes) will still detect "rock" inside "math rock" 
+  // via substring matching, so stats won't break.
+  return clean;
 }
 
-/**
- * Extracts a "Decade" tag from a release date string (YYYY-MM-DD).
- */
 export function getDecade(releaseDate) {
   if (!releaseDate) return 'Unknown';
   const year = parseInt(releaseDate.split('-')[0]);
