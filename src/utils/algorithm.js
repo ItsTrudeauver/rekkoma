@@ -1,17 +1,18 @@
 import ARCHETYPES from '../data/archetypes.json';
 
 // --- CONFIGURATION ---
+// All labels removed. The UI will now strictly enforce YES / NO.
 const VIBE_QUESTIONS = [
-  { id: 'obscure', text: "Do you want **hidden gems**?", check: t => t.popularity < 30, yesLabel: "Yes, unknown", noLabel: "No, popular" },
-  { id: 'sad', text: "Are you feeling **melancholy**?", check: t => t.valence < 0.4, yesLabel: "Yes, sad", noLabel: "No, happy" },
-  { id: 'happy', text: "Do you need **uplifting** vibes?", check: t => t.valence > 0.6, yesLabel: "Yes, uplifting", noLabel: "No, moody" },
-  { id: 'energy_high', text: "Do you need **high energy**?", check: t => t.energy > 0.65, yesLabel: "Yes, hype", noLabel: "No, chill" },
-  { id: 'chill', text: "Do you want to **chill/relax**?", check: t => t.energy < 0.45, yesLabel: "Yes, relax", noLabel: "No, energy" },
-  { id: 'dance', text: "Do you want to **dance**?", check: t => t.danceability > 0.65, yesLabel: "Yes, dance", noLabel: "No, sit" },
-  { id: 'acoustic', text: "Prefer **acoustic** sounds?", check: t => t.acousticness > 0.5, yesLabel: "Yes, acoustic", noLabel: "No, electric" },
-  { id: 'electronic', text: "Prefer **electronic** sounds?", check: t => t.acousticness < 0.2, yesLabel: "Yes, electronic", noLabel: "No, organic" },
-  { id: 'vocals', text: "Do you want **vocals**?", check: t => t.instrumentalness < 0.5, yesLabel: "Yes, vocals", noLabel: "No, instrumental" },
-  { id: 'long', text: "Do you prefer **long** tracks (> 4 min)?", check: t => t.duration_ms > 240000, yesLabel: "Yes, epic", noLabel: "No, standard" }
+  { id: 'obscure', text: "Do you want to find **hidden gems**?", check: t => t.popularity < 30 },
+  { id: 'sad', text: "Are you feeling **melancholy**?", check: t => t.valence < 0.4 },
+  { id: 'happy', text: "Do you need **uplifting** vibes?", check: t => t.valence > 0.6 },
+  { id: 'energy_high', text: "Do you need **high energy**?", check: t => t.energy > 0.65 },
+  { id: 'chill', text: "Do you want to **chill/relax**?", check: t => t.energy < 0.45 },
+  { id: 'dance', text: "Is this for **dancing**?", check: t => t.danceability > 0.65 },
+  { id: 'acoustic', text: "Do you prefer **acoustic** sounds?", check: t => t.acousticness > 0.5 },
+  { id: 'electronic', text: "Do you prefer **electronic** sounds?", check: t => t.acousticness < 0.2 },
+  { id: 'vocals', text: "Do you want **vocals**?", check: t => t.instrumentalness < 0.5 },
+  { id: 'long', text: "Do you prefer **long** tracks (> 4 min)?", check: t => t.duration_ms > 240000 }
 ];
 
 function capitalize(str) {
@@ -26,7 +27,6 @@ function getArchetypeMatchRatio(track, conditions) {
   let matches = 0;
   for (const [key, bounds] of entries) {
     const val = track[key];
-    // Skip if data is missing
     if (val === undefined) continue;
 
     let hit = true;
@@ -53,8 +53,8 @@ export function getNextQuestion(tracks, askedTags = [], seed = '') {
 
   const isSafeSplit = (matchCount) => {
     const ratio = matchCount / total;
-    if (total < 20) return ratio > 0 && ratio < 1; // Allow anything for small pools
-    return ratio > 0.05 && ratio < 0.95; // 5% rule for large pools
+    if (total < 20) return ratio > 0 && ratio < 1; 
+    return ratio > 0.05 && ratio < 0.95; 
   };
 
   // 1. VIBE QUESTIONS
@@ -67,29 +67,24 @@ export function getNextQuestion(tracks, askedTags = [], seed = '') {
           id: q.id,
           value: q.check,
           entropy: calculateEntropy(matchCount),
-          text: q.text,
-          yesLabel: q.yesLabel, 
-          noLabel: q.noLabel
+          text: q.text
         });
       }
     }
   });
 
-  // 2. ARCHETYPE QUESTIONS (Complex Rules)
+  // 2. ARCHETYPE QUESTIONS
   ARCHETYPES.forEach(arch => {
     if (!askedTags.includes(arch.id)) {
-      // Count how many tracks match at least 70% of the conditions
       const matchCount = tracks.filter(t => getArchetypeMatchRatio(t, arch.conditions) >= 0.7).length;
       
       if (isSafeSplit(matchCount)) {
         candidates.push({
           type: 'archetype',
           id: arch.id,
-          conditions: arch.conditions, // Pass conditions, not a check function
+          conditions: arch.conditions,
           entropy: calculateEntropy(matchCount),
-          text: arch.text,
-          yesLabel: "Yes",
-          noLabel: "No"
+          text: arch.text
         });
       }
     }
@@ -108,12 +103,10 @@ export function getNextQuestion(tracks, askedTags = [], seed = '') {
     if (isSafeSplit(count)) {
       candidates.push({
         type: 'genre',
-        id: genreId, // Standardized ID
+        id: genreId, 
         value: genre,
         entropy: calculateEntropy(count),
-        text: `Do you want **${capitalize(genre)}** elements?`,
-        yesLabel: "Yes",
-        noLabel: "No"
+        text: `Do you want **${capitalize(genre)}** elements?`
       });
     }
   });
@@ -135,21 +128,18 @@ export function updateTrackScores(tracks, question, userSaidYes) {
     const currentScore = t.score || 0;
     let change = 0;
 
-    // --- LOGIC FOR COMPLEX ARCHETYPES ---
     if (question.type === 'archetype') {
       const matchRatio = getArchetypeMatchRatio(t, question.conditions);
-      
       if (userSaidYes) {
-        if (matchRatio === 1.0) change = 3;       // Perfect fit: Huge Boost
-        else if (matchRatio >= 0.6) change = 1;   // Decent fit: Small Boost
-        else change = -2;                         // Bad fit: Penalty
+        if (matchRatio === 1.0) change = 3;       
+        else if (matchRatio >= 0.6) change = 1;   
+        else change = -2;                         
       } else {
-        if (matchRatio === 1.0) change = -3;      // They explicitly rejected this exact vibe
-        else if (matchRatio >= 0.6) change = -1;  // Rejection of something similar
-        else change = 1;                          // This track wasn't that vibe anyway, small bonus
+        if (matchRatio === 1.0) change = -3;      
+        else if (matchRatio >= 0.6) change = -1;  
+        else change = 1;                          
       }
     } 
-    // --- LOGIC FOR SIMPLE VIBES/GENRES ---
     else {
       let isMatch = false;
       if (question.type === 'vibe') isMatch = question.value(t);

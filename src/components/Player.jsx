@@ -1,7 +1,7 @@
 // src/components/Player.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import ReactPlayer from 'react-player/youtube';
-import { Play, Pause, SkipForward, Volume2, Loader2, ExternalLink, AlertCircle } from 'lucide-react';
+import { Play, Pause, ExternalLink, AlertCircle, Loader2 } from 'lucide-react';
 import { fetchVideoId } from '../services/youtube';
 
 export function Player({ track, onClose }) {
@@ -10,23 +10,21 @@ export function Player({ track, onClose }) {
   const [isReady, setIsReady] = useState(false);
   const [loadingAudio, setLoadingAudio] = useState(false);
   const [error, setError] = useState(null);
-  const [played, setPlayed] = useState(0); // 0 to 1
   const playerRef = useRef(null);
 
-  // --- 1. HANDLE TRACK CHANGES ---
+  // --- 1. EFFECT: LOAD TRACK ---
   useEffect(() => {
     let active = true;
 
     if (track) {
-      // Reset State
+      // Reset State for new track
       setPlaying(false);
       setIsReady(false);
       setYoutubeId(null);
       setError(null);
-      setPlayed(0);
       setLoadingAudio(true);
 
-      // Fetch Video ID
+      // Fetch YouTube ID
       fetchVideoId(track).then(id => {
         if (!active) return;
 
@@ -50,8 +48,6 @@ export function Player({ track, onClose }) {
 
   const handleError = (e) => {
     console.warn("Player Error:", e);
-    // Error 150/101 = Restricted Embed. 
-    // We catch generic errors too just in case.
     setError("Restricted");
     setPlaying(false);
   };
@@ -61,41 +57,43 @@ export function Player({ track, onClose }) {
     setPlaying(!playing);
   };
 
+  // If no track is active, return nothing (though parent usually handles this)
   if (!track) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 animate-in slide-in-from-bottom-10">
-      <div className="max-w-2xl mx-auto bg-gray-950/90 border border-gray-800 backdrop-blur-md shadow-2xl p-4 flex gap-4 items-center rounded-sm relative overflow-hidden">
+    <div className="h-full flex flex-col relative">
+      
+      {/* --- TOP: ALBUM ART & INVISIBLE PLAYER --- */}
+      <div className="relative aspect-square w-full bg-black group overflow-hidden shrink-0">
         
-        {/* Progress Bar (Top Border) */}
-        <div className="absolute top-0 left-0 h-0.5 bg-gray-800 w-full">
-          <div 
-            className="h-full bg-accent transition-all duration-300 ease-linear"
-            style={{ width: `${played * 100}%` }}
-          />
-        </div>
+        {/* The Album Art Image */}
+        {track.image ? (
+            <img 
+              src={track.image} 
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+              alt={track.name} 
+            />
+        ) : (
+            <div className="w-full h-full bg-gray-900 flex items-center justify-center text-gray-700 font-mono text-xs">
+              NO IMAGE
+            </div>
+        )}
 
-        {/* --- 3. VIDEO MONITOR (THE FIX) --- */}
-        {/* CRITICAL FIX: We do NOT use 'hidden'. 
-           We use w-0 h-0 on mobile to keep the instance alive.
+        {/* MOBILE FIX: The Player must exist in the DOM to load.
+           We use w-0 h-0 opacity-0 to "hide" it visually without display:none.
         */}
-        <div className="relative shrink-0 overflow-hidden group 
-          w-0 h-0 opacity-0 
-          sm:w-32 sm:h-24 sm:opacity-100 sm:border sm:border-gray-800 sm:bg-gray-900 transition-all"
-        >
+        <div className="absolute top-0 left-0 w-0 h-0 opacity-0 pointer-events-none">
           {youtubeId && !error && (
             <ReactPlayer
               ref={playerRef}
               url={`https://www.youtube.com/watch?v=${youtubeId}`}
-              width="100%"
-              height="100%"
               playing={playing}
-              controls={false}
               volume={0.8}
               onReady={handleReady}
-              onProgress={({ played }) => setPlayed(played)}
-              onError={handleError} // <--- Error Handler
+              onError={handleError}
               onEnded={() => setPlaying(false)}
+              width="100%"
+              height="100%"
               config={{
                 youtube: {
                   playerVars: { showinfo: 0, modestbranding: 1 }
@@ -103,98 +101,99 @@ export function Player({ track, onClose }) {
               }}
             />
           )}
-
-          {/* Visual State: Loading */}
-          {loadingAudio && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-900 z-10">
-              <Loader2 className="w-6 h-6 text-accent animate-spin" />
-            </div>
-          )}
-
-          {/* Visual State: Error (Static Noise) */}
-          {error && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-red-500 z-10 p-2 text-center">
-              <AlertCircle className="w-6 h-6 mb-1 opacity-50" />
-              <span className="text-[8px] font-mono uppercase tracking-widest">Signal Lost</span>
-            </div>
-          )}
         </div>
 
-        {/* --- 4. CONTROLS & INFO --- */}
-        <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
-          {/* Metadata */}
-          <div className="flex justify-between items-start">
-            <div className="truncate pr-4">
-              <h3 className={`text-sm font-bold truncate ${error ? 'text-gray-500 line-through' : 'text-gray-100'}`}>
-                {track.name}
-              </h3>
-              <p className="text-xs text-gray-500 uppercase tracking-wider truncate">
-                {track.artist}
-              </p>
-            </div>
-
-            {/* ERROR / LINK BUTTON */}
-            {/* Shows automatically on error, or if user wants to open manually */}
-            {(error || youtubeId) && (
-              <a 
-                href={youtubeId ? `https://www.youtube.com/watch?v=${youtubeId}` : `https://www.youtube.com/results?search_query=${track.artist}+${track.name}`}
-                target="_blank"
-                rel="noreferrer"
-                className={`
-                  flex items-center gap-1.5 px-2 py-1 text-[10px] uppercase tracking-widest border transition-all
-                  ${error 
-                    ? 'border-red-900/50 bg-red-900/10 text-red-400 hover:bg-red-900/20' 
-                    : 'border-gray-800 text-gray-500 hover:text-accent hover:border-accent'}
-                `}
-              >
-                {error ? 'Play External' : 'Open YT'}
-                <ExternalLink className="w-3 h-3" />
-              </a>
+        {/* Overlay Controls (Hover or Paused state) */}
+        <div className={`
+          absolute inset-0 bg-black/30 flex items-center justify-center transition-all duration-300
+          ${playing ? 'opacity-0 group-hover:opacity-100' : 'opacity-100 backdrop-blur-[2px]'}
+        `}>
+          <button 
+            onClick={togglePlay}
+            disabled={!isReady && !error}
+            className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white flex items-center justify-center hover:scale-105 hover:bg-white/20 transition-all shadow-xl"
+          >
+            {loadingAudio ? (
+              <Loader2 className="animate-spin w-6 h-6 text-gray-300"/>
+            ) : error ? (
+              <AlertCircle className="w-6 h-6 text-red-500"/>
+            ) : playing ? (
+              <Pause className="w-6 h-6 fill-current"/>
+            ) : (
+              <Play className="w-6 h-6 fill-current ml-1"/>
             )}
-          </div>
-
-          {/* Control Bar */}
-          <div className="flex items-center gap-4 mt-1">
-            <button 
-              onClick={togglePlay}
-              disabled={!isReady || !!error}
-              className={`
-                w-8 h-8 flex items-center justify-center border transition-all
-                ${error 
-                  ? 'border-red-900/30 text-red-900 cursor-not-allowed' 
-                  : isReady 
-                    ? 'border-accent text-black bg-accent hover:scale-105' 
-                    : 'border-gray-700 text-gray-600 animate-pulse cursor-wait'}
-              `}
-            >
-              {loadingAudio ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : error ? (
-                <div className="w-2 h-2 bg-red-900 rounded-full" /> 
-              ) : playing ? (
-                <Pause className="w-4 h-4 fill-current" />
-              ) : (
-                <Play className="w-4 h-4 fill-current ml-0.5" />
-              )}
-            </button>
-
-            {/* Status Text */}
-            <div className="flex-1 font-mono text-[10px] uppercase tracking-widest text-gray-500">
-              {loadingAudio ? 'Searching Frequencies...' : 
-               error ? <span className="text-red-500">Playback Restricted</span> :
-               playing ? 'Now Playing' : 'Paused'}
-            </div>
-
-            {/* Close Button */}
-            <button 
-              onClick={onClose} 
-              className="text-gray-600 hover:text-red-400 transition-colors p-2"
-            >
-              <span className="text-xs font-bold">✕</span>
-            </button>
-          </div>
+          </button>
         </div>
       </div>
+
+      {/* --- MIDDLE: INFO & METADATA --- */}
+      <div className="flex-1 p-6 space-y-6 overflow-y-auto bg-transparent">
+        
+        {/* Title Block */}
+        <div>
+          <h2 className="text-2xl font-bold text-white leading-tight mb-2 drop-shadow-sm">
+            {track.name}
+          </h2>
+          <p className="text-sm text-accent font-bold uppercase tracking-widest">
+            {track.artist}
+          </p>
+        </div>
+
+        {/* Metadata Grid */}
+        <div className="grid grid-cols-2 gap-3 text-[10px] uppercase tracking-wider text-gray-400 font-mono">
+            {/* Release Date */}
+            <div className="p-3 bg-white/5 rounded border border-white/5">
+                <span className="block text-gray-500 mb-1">Release</span>
+                {track.release_date?.substring(0,4) || 'N/A'}
+            </div>
+            
+            {/* BPM Estimate */}
+            <div className="p-3 bg-white/5 rounded border border-white/5">
+                <span className="block text-gray-500 mb-1">BPM Estimate</span>
+                {Math.round(track.energy * 180)}
+            </div>
+            
+            {/* Genres Tag Cloud */}
+            <div className="col-span-2 p-3 bg-white/5 rounded border border-white/5">
+                <span className="block text-gray-500 mb-2">Genres / Vibe</span>
+                <div className="flex flex-wrap gap-1.5">
+                    {track.genres && track.genres.slice(0, 6).map(g => (
+                        <span key={g} className="px-1.5 py-0.5 bg-black/40 text-gray-300 rounded text-[9px] border border-white/5">
+                          {g}
+                        </span>
+                    ))}
+                </div>
+            </div>
+        </div>
+
+        {/* Error State Banner */}
+        {error && (
+            <div className="p-4 bg-red-950/30 border border-red-500/30 text-red-200 text-xs text-center rounded-lg backdrop-blur-sm">
+                <p className="font-bold mb-1 tracking-widest uppercase">Playback Restricted</p>
+                <p className="opacity-70 mb-3">This track cannot be embedded due to owner restrictions.</p>
+                <a 
+                    href={youtubeId ? `https://www.youtube.com/watch?v=${youtubeId}` : `https://www.youtube.com/results?search_query=${track.artist}+${track.name}`}
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 px-3 py-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/50 rounded transition-colors"
+                >
+                    <span>Open in YouTube</span>
+                    <ExternalLink className="w-3 h-3" />
+                </a>
+            </div>
+        )}
+      </div>
+
+      {/* --- BOTTOM: CLOSE BUTTON --- */}
+      <div className="p-4 border-t border-white/10 mt-auto">
+        <button 
+          onClick={onClose}
+          className="w-full py-3 text-xs font-bold uppercase tracking-[0.2em] text-gray-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 transition-all rounded-lg"
+        >
+          Close Widget
+        </button>
+      </div>
+
     </div>
   );
 }

@@ -1,35 +1,37 @@
 import React from 'react';
 
-export function Layout({ children }) {
+export function Layout({ children, background }) {
   return (
-    <div className="min-h-screen flex flex-col relative bg-gray-950 text-gray-300 font-mono">
-      {/* Visual Effects */}
-      <div className="scanline-overlay" />
-      <div className="crt-flicker" />
+    <div className="min-h-screen flex flex-col relative bg-gray-950 text-gray-300 font-mono overflow-hidden transition-colors duration-1000">
       
-      {/* Header */}
-      <header className="border-b border-gray-800 p-4 sticky top-0 bg-gray-950/95 backdrop-blur z-40">
-        <div className="max-w-2xl mx-auto flex justify-between items-end">
-          <h1 className="text-xl font-bold tracking-tighter leading-none text-gray-100">
-            REKKOMA <span className="text-accent text-[10px] align-top tracking-widest font-normal">SYS.v1</span>
-          </h1>
-          <div className="flex gap-4 text-[10px] uppercase tracking-widest text-gray-600">
-            <span className="hidden md:inline">Status: <span className="text-accent">ONLINE</span></span>
-            <span>Mem: <span className="text-gray-400">OK</span></span>
-          </div>
+      {/* --- DYNAMIC AMBIENCE (The "Background Accent") --- */}
+      {background && (
+        <div className="fixed inset-0 z-0 animate-in fade-in duration-1000">
+          {/* 1. The Blurry Image Layer */}
+          <img 
+            src={background} 
+            className="w-full h-full object-cover blur-[80px] opacity-60 scale-125 transform" 
+            alt="" 
+          />
+          {/* 2. Gradient Overlay (Lighter than before so color shows through) */}
+          <div className="absolute inset-0 bg-gradient-to-t from-gray-950 via-gray-950/40 to-transparent" />
+          
+          {/* 3. Noise Texture */}
+          <div className="absolute inset-0 opacity-20 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
         </div>
+      )}
+
+      {/* Header (Floating) */}
+      <header className="fixed top-0 left-0 p-6 z-40">
+        <h1 className="text-xl font-bold tracking-tighter text-gray-100 drop-shadow-md">
+          REKKOMA <span className="text-accent text-[10px] tracking-widest font-normal">SYS.v2</span>
+        </h1>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 w-full max-w-2xl mx-auto p-4 md:p-8 z-10 relative">
+      {/* Main Content Container */}
+      <main className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6 z-20 pt-24 relative">
         {children}
       </main>
-
-      {/* Footer */}
-      <footer className="border-t border-gray-800 p-6 text-center text-[10px] text-gray-600 uppercase tracking-widest">
-        <div>Index Construction Complete</div>
-        <div className="mt-1 opacity-50">End of Line</div>
-      </footer>
     </div>
   );
 }
