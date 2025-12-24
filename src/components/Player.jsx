@@ -1,179 +1,199 @@
 // src/components/Player.jsx
-import React, { useState, useRef, useEffect } from 'react';
-import ReactPlayer from 'react-player'; // <--- REVERTED TO STANDARD IMPORT
+import React, { useState, useEffect, useRef } from 'react';
+import ReactPlayer from 'react-player/youtube';
+import { Play, Pause, SkipForward, Volume2, Loader2, ExternalLink, AlertCircle } from 'lucide-react';
 import { fetchVideoId } from '../services/youtube';
 
 export function Player({ track, onClose }) {
   const [playing, setPlaying] = useState(false);
-  const [played, setPlayed] = useState(0); 
-  const [duration, setDuration] = useState(0);
-  const [isReady, setIsReady] = useState(false);
-  
   const [youtubeId, setYoutubeId] = useState(null);
+  const [isReady, setIsReady] = useState(false);
   const [loadingAudio, setLoadingAudio] = useState(false);
-  
+  const [error, setError] = useState(null);
+  const [played, setPlayed] = useState(0); // 0 to 1
   const playerRef = useRef(null);
 
-  // 1. Search for ID when track changes
-  // In src/components/Player.jsx
-useEffect(() => {
-  let active = true;
+  // --- 1. HANDLE TRACK CHANGES ---
+  useEffect(() => {
+    let active = true;
 
-  if (track) {
-    // 1. Reset everything
-    setPlaying(false);
-    setIsReady(false);
-    setLoadingAudio(true);
-    setYoutubeId(null);
-    setPlayed(0);
+    if (track) {
+      // Reset State
+      setPlaying(false);
+      setIsReady(false);
+      setYoutubeId(null);
+      setError(null);
+      setPlayed(0);
+      setLoadingAudio(true);
 
-    // 2. Fetch
-    fetchVideoId(track).then(id => {
-      if (!active) return;
-      
-      if (id) {
-        setYoutubeId(id);
-        // Delay playing slightly to ensure Player is mounted
-        setTimeout(() => setPlaying(true), 100); 
-      }
-      setLoadingAudio(false);
-    });
-  }
+      // Fetch Video ID
+      fetchVideoId(track).then(id => {
+        if (!active) return;
 
+        if (id) {
+          setYoutubeId(id);
+        } else {
+          setError("Video not found");
+        }
+        setLoadingAudio(false);
+      });
+    }
 
     return () => { active = false; };
   }, [track]);
 
+  // --- 2. HANDLERS ---
+  const handleReady = () => {
+    setIsReady(true);
+    setPlaying(true); // Auto-play when ready
+  };
+
+  const handleError = (e) => {
+    console.warn("Player Error:", e);
+    // Error 150/101 = Restricted Embed. 
+    // We catch generic errors too just in case.
+    setError("Restricted");
+    setPlaying(false);
+  };
+
+  const togglePlay = () => {
+    if (!isReady || error) return;
+    setPlaying(!playing);
+  };
+
   if (!track) return null;
 
-  const handleSeek = (e) => {
-    const newPlayed = parseFloat(e.target.value);
-    setPlayed(newPlayed);
-    playerRef.current?.seekTo(newPlayed);
-  };
-
-  const formatTime = (seconds) => {
-    if (!seconds) return "00:00";
-    const date = new Date(seconds * 1000);
-    const mm = date.getUTCMinutes();
-    const ss = date.getUTCSeconds().toString().padStart(2, '0');
-    return `${mm}:${ss}`;
-  };
-
   return (
-    <div className="fixed bottom-0 left-0 right-0 border-t border-gray-800 bg-black z-50 animate-in slide-in-from-bottom duration-500">
-      
-      <div className="max-w-4xl mx-auto p-3 flex gap-4 items-center h-28">
+    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 animate-in slide-in-from-bottom-10">
+      <div className="max-w-2xl mx-auto bg-gray-950/90 border border-gray-800 backdrop-blur-md shadow-2xl p-4 flex gap-4 items-center rounded-sm relative overflow-hidden">
         
-        {/* --- VISIBLE MONITOR (REQUIRED) --- */}
-        <div className="relative shrink-0 overflow-hidden group w-0 h-0 opacity-0 sm:w-32 sm:h-24 sm:opacity-100 sm:border sm:border-gray-800 sm:bg-gray-900 transition-all">
-           {youtubeId ? (
-             <div className="w-full h-full grayscale contrast-125 opacity-80 pointer-events-none transition-opacity duration-300 group-hover:opacity-100">
-                <ReactPlayer
-                  key={youtubeId}  // <--- ADD THIS LINE
-                  ref={playerRef}
-                  url={`https://www.youtube.com/watch?v=${youtubeId}`} 
-                  playing={playing}
-                  volume={0.8}
-                  width="100%"
-                  height="100%"
-                  controls={false}
-                  onReady={() => {
-                    setIsReady(true);
-                    setDuration(playerRef.current?.getDuration() || 0);
-                  }}
-                  onProgress={({ played }) => setPlayed(played)}
-                  onEnded={() => setPlaying(false)}
-                  onError={(e) => console.log("Stream Error:", e)}
-                  config={{
-                    youtube: {
-                      playerVars: { 
-                        showinfo: 0, 
-                        controls: 0, 
-                        modestbranding: 1, 
-                        iv_load_policy: 3,
-                        fs: 0
-                      }
-                    }
-                  }}
-                />
-             </div>
-           ) : (
-             <div className="w-full h-full flex flex-col items-center justify-center bg-gray-900 gap-2">
-                <div className="w-6 h-6 border-2 border-gray-700 border-t-accent animate-spin rounded-full" />
-                <span className="text-[9px] text-gray-500 font-mono animate-pulse">SEARCHING</span>
-             </div>
-           )}
-           
-           <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] z-10 bg-[length:100%_2px,3px_100%] pointer-events-none" />
+        {/* Progress Bar (Top Border) */}
+        <div className="absolute top-0 left-0 h-0.5 bg-gray-800 w-full">
+          <div 
+            className="h-full bg-accent transition-all duration-300 ease-linear"
+            style={{ width: `${played * 100}%` }}
+          />
         </div>
 
-        {/* --- CONTROLS --- */}
-        <div className="flex-1 flex flex-col justify-between h-full py-1">
-            
-            <div className="flex justify-between items-start">
-              <div className="flex items-center gap-3">
-                 <div className={`w-1.5 h-1.5 rounded-full ${isReady ? 'bg-green-500 shadow-[0_0_5px_#22c55e]' : 'bg-red-900 animate-pulse'}`} />
-                 
-                 <div className="flex flex-col">
-                   <span className="text-xs text-gray-100 font-bold uppercase tracking-widest truncate max-w-[180px] md:max-w-[300px]">
-                     {track.name}
-                   </span>
-                   <span className="text-[10px] text-gray-500 uppercase tracking-widest flex items-center gap-2">
-                     {track.artist}
-                     {loadingAudio && <span className="text-accent animate-pulse">:: ESTABLISHING UPLINK...</span>}
-                   </span>
-                 </div>
-              </div>
-              
-              <button 
-                onClick={onClose}
-                className="text-[10px] text-gray-600 hover:text-red-500 uppercase tracking-widest px-2 transition-colors"
+        {/* --- 3. VIDEO MONITOR (THE FIX) --- */}
+        {/* CRITICAL FIX: We do NOT use 'hidden'. 
+           We use w-0 h-0 on mobile to keep the instance alive.
+        */}
+        <div className="relative shrink-0 overflow-hidden group 
+          w-0 h-0 opacity-0 
+          sm:w-32 sm:h-24 sm:opacity-100 sm:border sm:border-gray-800 sm:bg-gray-900 transition-all"
+        >
+          {youtubeId && !error && (
+            <ReactPlayer
+              ref={playerRef}
+              url={`https://www.youtube.com/watch?v=${youtubeId}`}
+              width="100%"
+              height="100%"
+              playing={playing}
+              controls={false}
+              volume={0.8}
+              onReady={handleReady}
+              onProgress={({ played }) => setPlayed(played)}
+              onError={handleError} // <--- Error Handler
+              onEnded={() => setPlaying(false)}
+              config={{
+                youtube: {
+                  playerVars: { showinfo: 0, modestbranding: 1 }
+                }
+              }}
+            />
+          )}
+
+          {/* Visual State: Loading */}
+          {loadingAudio && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-900 z-10">
+              <Loader2 className="w-6 h-6 text-accent animate-spin" />
+            </div>
+          )}
+
+          {/* Visual State: Error (Static Noise) */}
+          {error && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-red-500 z-10 p-2 text-center">
+              <AlertCircle className="w-6 h-6 mb-1 opacity-50" />
+              <span className="text-[8px] font-mono uppercase tracking-widest">Signal Lost</span>
+            </div>
+          )}
+        </div>
+
+        {/* --- 4. CONTROLS & INFO --- */}
+        <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+          {/* Metadata */}
+          <div className="flex justify-between items-start">
+            <div className="truncate pr-4">
+              <h3 className={`text-sm font-bold truncate ${error ? 'text-gray-500 line-through' : 'text-gray-100'}`}>
+                {track.name}
+              </h3>
+              <p className="text-xs text-gray-500 uppercase tracking-wider truncate">
+                {track.artist}
+              </p>
+            </div>
+
+            {/* ERROR / LINK BUTTON */}
+            {/* Shows automatically on error, or if user wants to open manually */}
+            {(error || youtubeId) && (
+              <a 
+                href={youtubeId ? `https://www.youtube.com/watch?v=${youtubeId}` : `https://www.youtube.com/results?search_query=${track.artist}+${track.name}`}
+                target="_blank"
+                rel="noreferrer"
+                className={`
+                  flex items-center gap-1.5 px-2 py-1 text-[10px] uppercase tracking-widest border transition-all
+                  ${error 
+                    ? 'border-red-900/50 bg-red-900/10 text-red-400 hover:bg-red-900/20' 
+                    : 'border-gray-800 text-gray-500 hover:text-accent hover:border-accent'}
+                `}
               >
-                [EJECT]
-              </button>
+                {error ? 'Play External' : 'Open YT'}
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+          </div>
+
+          {/* Control Bar */}
+          <div className="flex items-center gap-4 mt-1">
+            <button 
+              onClick={togglePlay}
+              disabled={!isReady || !!error}
+              className={`
+                w-8 h-8 flex items-center justify-center border transition-all
+                ${error 
+                  ? 'border-red-900/30 text-red-900 cursor-not-allowed' 
+                  : isReady 
+                    ? 'border-accent text-black bg-accent hover:scale-105' 
+                    : 'border-gray-700 text-gray-600 animate-pulse cursor-wait'}
+              `}
+            >
+              {loadingAudio ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : error ? (
+                <div className="w-2 h-2 bg-red-900 rounded-full" /> 
+              ) : playing ? (
+                <Pause className="w-4 h-4 fill-current" />
+              ) : (
+                <Play className="w-4 h-4 fill-current ml-0.5" />
+              )}
+            </button>
+
+            {/* Status Text */}
+            <div className="flex-1 font-mono text-[10px] uppercase tracking-widest text-gray-500">
+              {loadingAudio ? 'Searching Frequencies...' : 
+               error ? <span className="text-red-500">Playback Restricted</span> :
+               playing ? 'Now Playing' : 'Paused'}
             </div>
 
-            <div className="flex items-center gap-3 w-full">
-              <span className="text-[10px] font-mono text-gray-500 w-9 text-right">
-                {formatTime(duration * played)}
-              </span>
-              
-              <input
-                type="range"
-                min={0}
-                max={0.999999}
-                step="any"
-                value={played}
-                onChange={handleSeek}
-                disabled={!isReady}
-                className="
-                  flex-1 h-1 bg-gray-800 appearance-none cursor-pointer disabled:opacity-50
-                  [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2 [&::-webkit-slider-thumb]:h-4 
-                  [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:border-none
-                  hover:[&::-webkit-slider-thumb]:bg-white transition-all
-                "
-              />
-
-              <span className="text-[10px] font-mono text-gray-500 w-9">
-                {formatTime(duration)}
-              </span>
-            </div>
-
-            <div className="flex justify-center items-center">
-               <button 
-                 onClick={() => isReady && setPlaying(!playing)}
-                 disabled={!isReady}
-                 className={`
-                   font-mono text-2xl transition-all duration-200
-                   ${isReady ? 'text-accent hover:text-white hover:scale-110' : 'text-gray-800 cursor-wait'}
-                 `}
-               >
-                 {playing ? 'II' : '►'}
-               </button>
-            </div>
+            {/* Close Button */}
+            <button 
+              onClick={onClose} 
+              className="text-gray-600 hover:text-red-400 transition-colors p-2"
+            >
+              <span className="text-xs font-bold">✕</span>
+            </button>
+          </div>
         </div>
-
       </div>
     </div>
   );
