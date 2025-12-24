@@ -17,15 +17,14 @@ export function Player({ track, onClose }) {
   const playerRef = useRef(null);
 
   // 1. When track changes, search for the YouTube ID
+  // 1. When track changes, search for the YouTube ID
   useEffect(() => {
-    let active = true; // Prevent race conditions
+    let active = true;
 
     if (track) {
       // Reset State
-      setPlaying(false);
-      setPlayed(0);
-      setIsReady(false);
-      setYoutubeId(null);
+      setPlaying(false); // Pause the old track
+      // setYoutubeId(null); // <--- DELETE THIS LINE (Don't kill the player yet)
       setLoadingAudio(true);
 
       // Perform Search
@@ -33,10 +32,13 @@ export function Player({ track, onClose }) {
         if (!active) return;
         
         if (id) {
-          setYoutubeId(id);
-          setPlaying(true); // Auto-play once found
+          setYoutubeId(id);  // Swap the ID directly
+          setPlayed(0);      // Reset progress
+          setIsReady(false); // Mark as not ready until the new video buffers
+          setPlaying(true);  // Auto-play the new track
         } else {
           console.warn("Audio stream not found for:", track.name);
+          setYoutubeId(null); // Only kill it if we truly found nothing
         }
         setLoadingAudio(false);
       });

@@ -1,51 +1,52 @@
 /**
- * Searches for a specific YouTube Video ID using a public API.
- * This runs entirely in the browser (Client-Side).
+ * OFFICIAL YouTube Data API implementation (Debug Version).
  */
+
+// REPLACE THIS WITH YOUR NEW KEY
+const YOUTUBE_API_KEY = 'AIzaSyBUUmgA5y3OQnOJL_H3gldbklZYqvZleNw'; 
+
 export async function fetchVideoId(track) {
-  // 1. Construct a specific query
   const query = `${track.artist} - ${track.name}`;
-  
-  // 2. Use a public Invidious instance (CORS-friendly YouTube API)
-  // We use a specific reliable instance, but in production you might rotate these.
-  const API_URL = 'https://inv.tux.pizza/api/v1/search';
+  console.log(`[YouTube] Searching for: ${query}`);
+
+  const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=1&key=${YOUTUBE_API_KEY}`;
 
   try {
-    const response = await fetch(`${API_URL}?q=${encodeURIComponent(query)}&type=video&sort=relevance`);
-    
-    if (!response.ok) throw new Error('Search failed');
-    
-    const results = await response.json();
-    
-    if (!results || results.length === 0) return null;
+    const response = await fetch(url);
+    const data = await response.json();
 
-    // 3. THE SIEVE (Regex Filtering)
-    // We look for the "Best" video. 
-    // Priority: "Lyrics" > "Audio" > "Topic" > Standard
-    // We Avoid: "Live", "Cover", "React"
-    
-    const bestMatch = results.find(video => {
-      const title = video.title.toLowerCase();
-      const isBad = title.includes('cover') || title.includes('reaction') || title.includes('live at');
-      const isGood = title.includes('lyrics') || title.includes('audio') || video.author.includes('Topic');
-      return isGood && !isBad;
-    }) || results[0]; // Fallback to first result if no "perfect" match
+    // 1. CATCH API ERRORS (Quota, Not Enabled, etc.)
+    if (data.error) {
+      console.error("❌ YouTube API Error Details:", data.error);
+      alert(`YouTube API Error: ${data.error.message}\n(Check Console for details)`);
+      return null;
+    }
 
-    return bestMatch.videoId;
+    // 2. CHECK EMPTY RESULTS
+    if (!data.items || data.items.length === 0) {
+      console.warn(`⚠️ No results found for: ${query}`);
+      return null;
+    }
+
+    // 3. SUCCESS
+    const videoId = data.items[0].id.videoId;
+    console.log(`✅ Found ID: ${videoId}`);
+    return videoId;
 
   } catch (error) {
-    console.warn("YouTube ID fetch failed:", error);
-    return null; // Fail gracefully
+    console.error("❌ Network/Fetch Error:", error);
+    return null;
   }
+}
+
+// This function is for "Open in YouTube" buttons, NOT the player.
+// It is correct for it to return a search URL.
+export function getYouTubeLink(track) {
+  const q = `${track.artist} - ${track.name}`;
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
 }
 
 export function getYouTubeEmbedUrl(videoId) {
   if (!videoId) return null;
-  // Standard, clean embed. No "search" hacks.
   return `https://www.youtube.com/embed/${videoId}?autoplay=1&modestbranding=1&rel=0`;
-}
-
-export function getYouTubeLink(track) {
-  const q = `${track.artist} - ${track.name}`;
-  return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
 }
