@@ -15,28 +15,31 @@ export function Player({ track, onClose }) {
   const playerRef = useRef(null);
 
   // 1. Search for ID when track changes
-  useEffect(() => {
-    let active = true;
+  // In src/components/Player.jsx
+useEffect(() => {
+  let active = true;
 
-    if (track) {
-      setPlaying(false);
-      setIsReady(false);
-      setLoadingAudio(true);
-      setYoutubeId(null);
-      setPlayed(0);
+  if (track) {
+    // 1. Reset everything
+    setPlaying(false);
+    setIsReady(false);
+    setLoadingAudio(true);
+    setYoutubeId(null);
+    setPlayed(0);
 
-      fetchVideoId(track).then(id => {
-        if (!active) return;
-        
-        if (id) {
-          setYoutubeId(id);
-          setPlaying(true); 
-        } else {
-          console.warn("Audio stream not found for:", track.name);
-        }
-        setLoadingAudio(false);
-      });
-    }
+    // 2. Fetch
+    fetchVideoId(track).then(id => {
+      if (!active) return;
+      
+      if (id) {
+        setYoutubeId(id);
+        // Delay playing slightly to ensure Player is mounted
+        setTimeout(() => setPlaying(true), 100); 
+      }
+      setLoadingAudio(false);
+    });
+  }
+
 
     return () => { active = false; };
   }, [track]);
@@ -63,10 +66,11 @@ export function Player({ track, onClose }) {
       <div className="max-w-4xl mx-auto p-3 flex gap-4 items-center h-28">
         
         {/* --- VISIBLE MONITOR (REQUIRED) --- */}
-        <div className="relative w-32 h-24 shrink-0 border border-gray-800 bg-gray-900 overflow-hidden hidden sm:block group">
+        <div className="relative shrink-0 overflow-hidden group w-0 h-0 opacity-0 sm:w-32 sm:h-24 sm:opacity-100 sm:border sm:border-gray-800 sm:bg-gray-900 transition-all">
            {youtubeId ? (
              <div className="w-full h-full grayscale contrast-125 opacity-80 pointer-events-none transition-opacity duration-300 group-hover:opacity-100">
                 <ReactPlayer
+                  key={youtubeId}  // <--- ADD THIS LINE
                   ref={playerRef}
                   url={`https://www.youtube.com/watch?v=${youtubeId}`} 
                   playing={playing}
