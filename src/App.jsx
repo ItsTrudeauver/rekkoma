@@ -14,26 +14,29 @@ function App() {
     window.scrollTo(0, 0);
   }, [stage]);
 
+  // If the game ends, clean up the player track if it's not in the final results? 
+  // Actually, usually users want to keep listening. We leave it.
+
   return (
     <Layout background={currentTrack?.image}>
       
-      {/* LAYOUT SHIFT CONTAINER 
-         - We use 'lg:mr-[420px]' to leave space for the floating player widget + padding.
-         - The container itself is transparent; the widgets inside provide the structure.
+      {/* MAIN CONTENT AREA 
+          - We add margins to dodge the floating widgets
+          - Left margin for Candidate List (during game)
+          - Right margin for Player (when active)
       */}
       <div className={`
           relative transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]
-          ${currentTrack ? 'lg:mr-[420px]' : 'mr-0'}
+          ${stage === 'game' ? 'lg:ml-[280px]' : 'ml-0'} 
+          ${currentTrack ? 'lg:mr-[340px]' : 'mr-0'}
       `}>
         
-        {/* Error Banner */}
         {error && (
-          <div className="mb-8 p-4 rounded-lg border border-red-500/30 bg-red-900/20 text-red-200 text-xs font-mono uppercase tracking-widest backdrop-blur-md">
+          <div className="mb-8 p-4 rounded border border-red-500/30 bg-red-900/20 text-red-200 text-xs font-mono uppercase tracking-widest backdrop-blur-md">
             [CRITICAL ERROR]: {error}
           </div>
         )}
 
-        {/* --- STAGE: INPUT --- */}
         {stage === 'input' && (
           <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-12 animate-in fade-in duration-700">
              <div className="space-y-4 text-center max-w-lg">
@@ -47,7 +50,6 @@ function App() {
           </div>
         )}
 
-        {/* --- STAGE: LOADING --- */}
         {stage === 'loading' && (
           <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
              <div className="w-12 h-12 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
@@ -57,7 +59,6 @@ function App() {
           </div>
         )}
 
-        {/* --- STAGE: GAME --- */}
         {stage === 'game' && (
           <div className="max-w-2xl mx-auto py-8">
             <GameLoop 
@@ -74,23 +75,16 @@ function App() {
           </div>
         )}
 
-        {/* --- STAGE: RESULTS (THE CANDIDATE WIDGET) --- */}
+        {/* RESULTS GRID */}
         {stage === 'results' && (
           <div className="max-w-4xl mx-auto pb-24 animate-in slide-in-from-bottom-4 duration-700">
-            
-            {/* The Candidate List Widget (Glass Card) */}
             <div className="bg-gray-950/60 backdrop-blur-xl border border-gray-800/50 rounded-2xl p-6 shadow-2xl overflow-hidden">
-              
               <div className="flex justify-between items-end mb-6 border-b border-gray-800 pb-4">
                 <div>
                   <h2 className="text-xl text-gray-100 font-light">Analysis Complete</h2>
-                  <p className="text-xs text-accent uppercase tracking-widest mt-1">
-                    {pool.length} Candidates Identified
-                  </p>
+                  <p className="text-xs text-accent uppercase tracking-widest mt-1">{pool.length} Candidates Identified</p>
                 </div>
-                <button onClick={actions.reset} className="px-4 py-2 bg-gray-100 text-black text-[10px] font-bold uppercase tracking-widest hover:bg-accent rounded transition-colors">
-                  Restart
-                </button>
+                <button onClick={actions.reset} className="px-4 py-2 bg-gray-100 text-black text-[10px] font-bold uppercase tracking-widest hover:bg-accent rounded transition-colors">Restart</button>
               </div>
 
               <div className="grid grid-cols-1 gap-2">
@@ -100,55 +94,68 @@ function App() {
                     onClick={() => setCurrentTrack(track)}
                     className={`
                       group flex items-center gap-4 p-3 rounded-lg cursor-pointer transition-all duration-200 border
-                      ${currentTrack?.id === track.id 
-                        ? 'bg-accent/10 border-accent/50 translate-x-1' 
-                        : 'bg-transparent border-transparent hover:bg-white/5 hover:border-white/10'}
+                      ${currentTrack?.id === track.id ? 'bg-accent/10 border-accent/50 translate-x-1' : 'bg-transparent border-transparent hover:bg-white/5 hover:border-white/10'}
                     `}
                   >
                     <span className="text-[10px] text-gray-500 font-mono w-6 text-right">{String(i + 1).padStart(2, '0')}</span>
-                    
-                    <div className="relative w-10 h-10 rounded overflow-hidden bg-gray-900 shadow-sm">
-                      {track.image && (
-                         <img src={track.image} alt="" className="w-full h-full object-cover" />
-                      )}
+                    <div className="relative w-8 h-8 rounded overflow-hidden bg-gray-900">
+                      {track.image && <img src={track.image} alt="" className="w-full h-full object-cover" />}
                     </div>
-
                     <div className="flex-1 min-w-0">
-                      <h3 className={`text-sm font-medium truncate transition-colors ${currentTrack?.id === track.id ? 'text-accent' : 'text-gray-200 group-hover:text-white'}`}>
-                        {track.name}
-                      </h3>
-                      <p className="text-xs text-gray-500 uppercase tracking-wide truncate">{track.artist}</p>
+                      <h3 className={`text-xs font-bold truncate ${currentTrack?.id === track.id ? 'text-accent' : 'text-gray-300 group-hover:text-white'}`}>{track.name}</h3>
+                      <p className="text-[10px] text-gray-500 uppercase tracking-wide truncate">{track.artist}</p>
                     </div>
-
-                    {currentTrack?.id === track.id && (
-                       <div className="w-2 h-2 bg-accent rounded-full animate-pulse shadow-[0_0_10px_currentColor]" />
-                    )}
                   </div>
                 ))}
               </div>
             </div>
-
           </div>
         )}
       </div>
 
-      {/* 3. FLOATING PLAYER WIDGET
-          - Fixed position
-          - Margin on all sides (top-4, right-4, bottom-4)
-          - Rounded corners
-          - Slides off-screen to the right when not active
-      */}
+      {/* --- FLOATING WIDGET: LIVE CANDIDATES (LEFT) --- */}
+      {/* Only visible during GAME stage */}
       <div className={`
-        fixed top-4 right-4 bottom-4 w-[380px] z-50 
-        bg-gray-950/80 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-2xl overflow-hidden
-        transform transition-transform duration-500 cubic-bezier(0.3, 1, 0.4, 1)
-        ${currentTrack ? 'translate-x-0' : 'translate-x-[110%]'}
+        fixed top-24 left-6 w-[260px] z-30 
+        transition-all duration-500 ease-out
+        ${stage === 'game' ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-10 pointer-events-none'}
       `}>
-        {/* We pass the 'onClose' to hide the widget */}
-        <Player 
-          track={currentTrack} 
-          onClose={() => setCurrentTrack(null)} 
-        />
+        <div className="bg-gray-950/80 backdrop-blur-md border border-white/10 rounded-xl p-4 shadow-xl">
+          <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/5">
+             <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Live Pool</span>
+             <span className="text-[10px] text-accent font-mono">{pool.length}</span>
+          </div>
+          <div className="space-y-2">
+            {pool.slice(0, 5).map((track, i) => (
+               <div key={track.id} className="flex items-center gap-3 group opacity-80 hover:opacity-100 transition-opacity">
+                  <span className="text-[9px] font-mono text-gray-600 w-3">0{i+1}</span>
+                  <div className="flex-1 min-w-0">
+                     <div className="h-1 bg-gray-800 rounded-full overflow-hidden mb-1">
+                        {/* Fake score visualization based on index */}
+                        <div className="h-full bg-gray-500" style={{ width: `${100 - (i * 15)}%` }} />
+                     </div>
+                     <p className="text-[10px] text-gray-300 truncate leading-none">{track.name}</p>
+                     <p className="text-[8px] text-gray-500 truncate leading-none mt-0.5">{track.artist}</p>
+                  </div>
+               </div>
+            ))}
+            {pool.length > 5 && (
+               <div className="text-[9px] text-center text-gray-600 pt-2 italic">
+                  + {pool.length - 5} others hidden
+               </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* --- FLOATING WIDGET: PLAYER (RIGHT) --- */}
+      <div className={`
+        fixed top-4 right-4 bottom-4 w-[320px] z-50 
+        bg-gray-950/90 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-2xl overflow-hidden
+        transform transition-transform duration-500 cubic-bezier(0.3, 1, 0.4, 1)
+        ${currentTrack ? 'translate-x-0' : 'translate-x-[120%]'}
+      `}>
+        <Player track={currentTrack} onClose={() => setCurrentTrack(null)} />
       </div>
 
     </Layout>

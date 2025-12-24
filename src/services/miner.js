@@ -6,7 +6,7 @@ import { getDecade, cleanGenre } from '../utils/cleaning';
 const INITIAL_LIMIT = 50; 
 
 // --- CONFIGURATION: VIBE WEIGHTS ---
-const BLACKLIST = ['seen live', 'favorites', 'owned', 'my library', 'spotify', 'all', 'favorite'];
+const BLACKLIST = ['seen live', 'favorites', 'owned', 'my library', 'spotify', 'all', 'favorite', 'albums I own', 'unheard'];
 
 const KEYWORD_WEIGHTS = {
   // HIGH ENERGY / INTENSITY
@@ -15,6 +15,7 @@ const KEYWORD_WEIGHTS = {
   'hyperpop':    { energy: 0.9, danceability: 0.8 },
   'techno':      { energy: 0.8, instrumentalness: 0.7 },
   'drum and bass': { energy: 0.9, danceability: 0.7 },
+  'dnb':         { energy: 0.9, danceability: 0.7 },
   'rock':        { energy: 0.6 },
   'gym':         { energy: 0.8, valence: 0.6 },
   'running':     { energy: 0.8 },
@@ -49,28 +50,20 @@ const KEYWORD_WEIGHTS = {
 export async function mineTracks(seedQuery) {
   console.log(`🌱 SEED MINING: ${seedQuery}`);
   
-  // Clean quotes to prevent API errors
   const cleanSeed = seedQuery.replace(/"/g, '');
 
-  // We run 3 parallel searches to interpret the user's intent
   const searches = [
-    // PRIORITY 1: Explicit Genre (e.g. "math rock" -> tracks IN that genre)
     { q: `genre:"${cleanSeed}"`, type: 'genre', priority: 1 },
-    
-    // PRIORITY 2: Explicit Artist (e.g. "The 1975" -> tracks BY that artist)
     { q: `artist:"${cleanSeed}"`, type: 'artist', priority: 2 },
-    
-    // PRIORITY 3: General/Title (Fallback for specific songs)
     { q: cleanSeed, type: 'general', priority: 3 }
   ];
 
-  // Execute in parallel for speed
   const results = await Promise.all(searches.map(async (s) => {
     try {
       const res = await fetchFromSpotify('search', { 
         q: s.q, 
         type: 'track', 
-        limit: 20 // Fetch a small batch from each strategy
+        limit: 20 
       });
       return { ...s, items: res?.tracks?.items || [] };
     } catch (e) {
@@ -78,11 +71,9 @@ export async function mineTracks(seedQuery) {
     }
   }));
 
-  // Flatten and Prioritize
   const allTracks = [];
   const seenIds = new Set();
   
-  // Sort result groups by priority (Genre > Artist > General)
   results.sort((a, b) => a.priority - b.priority);
 
   for (const group of results) {
@@ -91,7 +82,6 @@ export async function mineTracks(seedQuery) {
     }
     
     for (const track of group.items) {
-      // Deduplicate: If "Math Rock" (song) appears in both General and Genre, keep the first one we saw
       if (!seenIds.has(track.id)) {
         seenIds.add(track.id);
         allTracks.push(track);
@@ -101,18 +91,15 @@ export async function mineTracks(seedQuery) {
 
   if (allTracks.length === 0) throw new Error("No tracks found.");
 
-  // Hydrate the top N combined results
   return await hydrateTracks(allTracks.slice(0, INITIAL_LIMIT));
 }
 
 /**
- * 2. EXPAND POOL (Smart Recommendation Engine)
- * Uses Spotify's 'recommendations' endpoint to find tracks matching specific Audio Features.
+ * 2. EXPAND POOL
  */
 export async function expandPool(currentPool, seedQuery, targets = {}) {
   console.log(`⚓ ANCHORED EXPANSION via Recommendations:`, targets);
   
-  // 1. Get up to 5 Seed Tracks (Spotify API limit)
   const seedTracks = currentPool
     .slice(0, 5)
     .map(t => t.id)
@@ -120,7 +107,6 @@ export async function expandPool(currentPool, seedQuery, targets = {}) {
 
   if (!seedTracks) return currentPool;
 
-  // 2. Call Recommendations Endpoint
   const res = await fetchFromSpotify('recommendations', { 
     seed_tracks: seedTracks,
     limit: 50,
@@ -132,13 +118,11 @@ export async function expandPool(currentPool, seedQuery, targets = {}) {
     return currentPool;
   }
   
-  // 3. Hydrate & Nudge
   const newTracks = await hydrateTracks(res.tracks);
   
   const existingIds = new Set(currentPool.map(t => t.id));
   const uniqueNewTracks = newTracks.filter(t => !existingIds.has(t.id));
 
-  // 4. "Trust" the Source: Apply target stats to the new tracks
   const nudgedTracks = uniqueNewTracks.map(t => {
      const noise = () => (Math.random() * 0.1) - 0.05; 
      
@@ -154,8 +138,7 @@ export async function expandPool(currentPool, seedQuery, targets = {}) {
 }
 
 /**
- * 3. THE "VIBE GUESSER" ENGINE (V2)
- * Smartly infers stats from Genres, Tags, and BPM.
+ * 3. THE "VIBE GUESSER" ENGINE
  */
 function inferVibes(genres = [], tags = []) {
   let stats = {
@@ -182,7 +165,7 @@ function inferVibes(genres = [], tags = []) {
     }
   });
 
-  // B. BPM PARSING (e.g. "140bpm")
+  // B. BPM PARSING
   const bpmTag = combined.find(t => t.match(/^\d{2,3}\s*bpm$/));
   if (bpmTag) {
     const bpm = parseInt(bpmTag);
@@ -254,7 +237,10 @@ async function hydrateTracks(rawTracks) {
       image: track.album?.images?.[0]?.url || null,
       release_date: track.album?.release_date || '2000',
       decade: getDecade(track.album?.release_date),
-      genres: [...genres, ...tags], 
+      
+      // 🔴 FIX: Deduplicate genres to prevent React unique key errors
+      genres: [...new Set([...genres, ...tags])], 
+      
       popularity: track.popularity || 0,
       energy: vibes.energy,
       valence: vibes.valence,

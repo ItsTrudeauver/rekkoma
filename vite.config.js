@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -9,13 +8,19 @@ export default defineConfig({
     port: 3000,
     strictPort: true,
     proxy: {
+      // 1. Forward API requests to Python
+      '/api': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      // 2. Keep your Piped API proxy if you still use it
       '/pipedapi': {
-        target: 'https://pipedapi.tokhmi.xyz', // A public Piped instance
+        target: 'https://pipedapi.tokhmi.xyz',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/pipedapi/, ''),
-        // Remove headers to look like a real browser request, not a dev server
-        configure: (proxy, _options) => {
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
             proxyReq.removeHeader('Origin');
             proxyReq.removeHeader('Referer');
           });
