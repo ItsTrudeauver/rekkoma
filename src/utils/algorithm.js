@@ -1,9 +1,8 @@
 import ARCHETYPES from '../data/archetypes.json';
 
 // --- CONFIGURATION ---
-// All labels removed. The UI will now strictly enforce YES / NO.
 const VIBE_QUESTIONS = [
-  { id: 'obscure', text: "Do you want to find **hidden gems**?", check: t => t.popularity < 30 },
+  // REMOVED: { id: 'obscure', ... } -> Now handled by SearchInput sliders.
   { id: 'sad', text: "Are you feeling **melancholy**?", check: t => t.valence < 0.4 },
   { id: 'happy', text: "Do you need **uplifting** vibes?", check: t => t.valence > 0.6 },
   { id: 'energy_high', text: "Do you need **high energy**?", check: t => t.energy > 0.65 },

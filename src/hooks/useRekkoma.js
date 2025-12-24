@@ -12,7 +12,8 @@ export function useRekkoma() {
   const [seed, setSeed] = useState(''); 
   const [isExpanding, setIsExpanding] = useState(false);
 
-  const startGame = useCallback(async (searchQuery) => {
+  // UPDATED: Accepts popRange argument
+  const startGame = useCallback(async (searchQuery, popRange = { min: 0, max: 100 }) => {
     setStage('loading');
     setError(null);
     setHistory([]);
@@ -20,10 +21,20 @@ export function useRekkoma() {
 
     try {
       const initialPool = await mineTracks(searchQuery);
-      setPool(initialPool);
       
-      // Generate first question based on the full initial pool
-      const firstQ = getNextQuestion(initialPool, [], searchQuery.toLowerCase());
+      // 1. FILTER BY POPULARITY SLIDER
+      const filteredPool = initialPool.filter(t => 
+        t.popularity >= popRange.min && t.popularity <= popRange.max
+      );
+
+      if (filteredPool.length === 0) {
+        throw new Error("No tracks found in that popularity range. Try widening the sliders.");
+      }
+
+      setPool(filteredPool);
+      
+      // Generate first question based on the filtered pool
+      const firstQ = getNextQuestion(filteredPool, [], searchQuery.toLowerCase());
       
       if (firstQ) {
         setQuestion(firstQ);
@@ -33,7 +44,7 @@ export function useRekkoma() {
       }
     } catch (err) {
       console.error(err);
-      setError("Server busy (429). Try again in a moment.");
+      setError(err.message || "Server busy (429). Try again in a moment.");
       setStage('input');
     }
   }, []);
@@ -41,11 +52,10 @@ export function useRekkoma() {
   const answerQuestion = useCallback(async (userSaidYes) => {
     if (!question) return;
 
-    // 1. SOFT SCORING (Replaces strict filtering)
-    // Instead of removing tracks, we adjust their score (+1 or -1)
+    // 1. SOFT SCORING
     let currentPool = updateTrackScores(pool, question, userSaidYes);
     
-    // 2. Sort by Score (Highest confidence first)
+    // 2. Sort by Score
     currentPool.sort((a, b) => (b.score || 0) - (a.score || 0));
 
     // 3. History Tracking
@@ -53,13 +63,10 @@ export function useRekkoma() {
     setHistory(newHistory);
 
     // 4. ANCHORED EXPANSION
-    // If user confirms a specific genre, try to find more tracks in that style
     if (userSaidYes && question.type === 'genre') {
       setIsExpanding(true);
       try {
         const expandedPool = await expandPool(currentPool, question.value, seed);
-        // Merge and re-sort. New tracks enter with neutral score (0), 
-        // which places them in the middle of the pack naturally.
         currentPool = expandedPool.map(t => ({
           ...t,
           score: t.score !== undefined ? t.score : 0 
@@ -77,13 +84,8 @@ export function useRekkoma() {
     const topTrack = currentPool[0];
     const runnerUp = currentPool[1];
     
-    // Calculate the gap between #1 and #2
     const scoreGap = (topTrack?.score || 0) - (runnerUp?.score || 0);
 
-    // Stop if:
-    // A) We have a clear winner (gap >= 3 points)
-    // B) We've asked too many questions (>= 15)
-    // C) We literally ran out of candidates (<= 1)
     if (currentPool.length <= 1 || scoreGap >= 3 || newHistory.length >= 15) {
       setStage('results');
       setQuestion(null);
@@ -91,16 +93,12 @@ export function useRekkoma() {
     }
 
     // 6. NEXT QUESTION GENERATION
-    // Crucial: Only look at the top 20 candidates to decide the next question.
-    // This prevents the AI from asking about tracks that are already "lost" (low score).
     const activeCandidates = currentPool.slice(0, 20); 
-    
     const nextQ = getNextQuestion(activeCandidates, newHistory, seed);
     
     if (nextQ) {
       setQuestion(nextQ);
     } else {
-      // If no good distinguishing question is found, show results
       setStage('results');
     }
   }, [pool, question, history, seed]);
