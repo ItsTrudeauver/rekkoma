@@ -1,0 +1,221 @@
+[
+  {
+    "id": "main_character_moment",
+    "text": "Do you want that **coming-of-age movie** feeling?",
+    "conditions": {
+      "valence": { "min": 0.6 },
+      "energy": { "min": 0.6, "max": 0.9 },
+      "popularity": { "min": 40 }
+    }
+  },
+  {
+    "id": "crying_in_the_club",
+    "text": "Do you want to **cry while dancing**?",
+    "conditions": {
+      "valence": { "max": 0.4 },
+      "energy": { "min": 0.7 },
+      "danceability": { "min": 0.6 }
+    }
+  },
+  {
+    "id": "doom_scrolling",
+    "text": "Is this for **dissociating/zoning out**?",
+    "conditions": {
+      "energy": { "max": 0.5 },
+      "valence": { "max": 0.5 },
+      "instrumentalness": { "min": 0.2 },
+      "acousticness": { "max": 0.8 }
+    }
+  },
+  {
+    "id": "gym_demon",
+    "text": "Do you need **aggressive workout** energy?",
+    "conditions": {
+      "energy": { "min": 0.85 },
+      "acousticness": { "max": 0.1 },
+      "valence": { "max": 0.6 }
+    }
+  },
+  {
+    "id": "cottagecore",
+    "text": "Are you yearning for a **simple life in the woods**?",
+    "conditions": {
+      "acousticness": { "min": 0.7 },
+      "energy": { "max": 0.6 },
+      "instrumentalness": { "max": 0.3 }
+    }
+  },
+  {
+    "id": "cyberpunk_dystopia",
+    "text": "Do you want **futuristic/industrial** sounds?",
+    "conditions": {
+      "acousticness": { "max": 0.05 },
+      "instrumentalness": { "min": 0.4 },
+      "energy": { "min": 0.7 },
+      "valence": { "max": 0.5 }
+    }
+  },
+  {
+    "id": "golden_hour",
+    "text": "Is it **sunset / golden hour** right now?",
+    "conditions": {
+      "valence": { "min": 0.5, "max": 0.8 },
+      "energy": { "min": 0.4, "max": 0.7 },
+      "danceability": { "min": 0.4 }
+    }
+  },
+  {
+    "id": "focus_mode",
+    "text": "Do you need to **lock in and focus**?",
+    "conditions": {
+      "instrumentalness": { "min": 0.7 },
+      "energy": { "max": 0.6 },
+      "valence": { "min": 0.3, "max": 0.7 }
+    }
+  },
+  {
+    "id": "midnight_crisis",
+    "text": "Is it 3AM and are you **staring at the ceiling**?",
+    "conditions": {
+      "valence": { "max": 0.25 },
+      "energy": { "max": 0.4 },
+      "acousticness": { "min": 0.3 }
+    }
+  },
+  {
+    "id": "bedroom_pop",
+    "text": "Do you like **lo-fi / DIY** aesthetics?",
+    "conditions": {
+      "energy": { "min": 0.3, "max": 0.7 },
+      "acousticness": { "min": 0.2, "max": 0.8 },
+      "popularity": { "max": 60 }
+    }
+  },
+  {
+    "id": "festival_mainstage",
+    "text": "Do you miss **massive festival crowds**?",
+    "conditions": {
+      "energy": { "min": 0.85 },
+      "danceability": { "min": 0.7 },
+      "acousticness": { "max": 0.1 },
+      "popularity": { "min": 50 }
+    }
+  },
+  {
+    "id": "coffee_shop",
+    "text": "Do you want a **cozy coffee shop** vibe?",
+    "conditions": {
+      "energy": { "max": 0.5 },
+      "acousticness": { "min": 0.6 },
+      "valence": { "min": 0.4, "max": 0.8 }
+    }
+  },
+  {
+    "id": "villain_arc",
+    "text": "Are you entering your **villain era**?",
+    "conditions": {
+      "valence": { "max": 0.4 },
+      "energy": { "min": 0.6 },
+      "danceability": { "min": 0.5 },
+      "acousticness": { "max": 0.4 }
+    }
+  },
+  {
+    "id": "road_trip",
+    "text": "Are you on a **sunny road trip**?",
+    "conditions": {
+      "energy": { "min": 0.6 },
+      "valence": { "min": 0.6 },
+      "acousticness": { "min": 0.1, "max": 0.6 }
+    }
+  },
+  {
+    "id": "space_travel",
+    "text": "Do you want to feel like you're **floating in space**?",
+    "conditions": {
+      "instrumentalness": { "min": 0.8 },
+      "acousticness": { "max": 0.3 },
+      "energy": { "max": 0.5 }
+    }
+  },
+  {
+    "id": "angry_breakup",
+    "text": "Did they **break your heart** (and you're mad)?",
+    "conditions": {
+      "valence": { "max": 0.4 },
+      "energy": { "min": 0.7 },
+      "acousticness": { "max": 0.3 }
+    }
+  },
+  {
+    "id": "sad_breakup",
+    "text": "Did they **break your heart** (and you're sad)?",
+    "conditions": {
+      "valence": { "max": 0.2 },
+      "energy": { "max": 0.4 },
+      "danceability": { "max": 0.4 }
+    }
+  },
+  {
+    "id": "underground_rave",
+    "text": "Do you want that **dark warehouse rave** sound?",
+    "conditions": {
+      "energy": { "min": 0.8 },
+      "valence": { "max": 0.5 },
+      "acousticness": { "max": 0.1 },
+      "danceability": { "min": 0.7 }
+    }
+  },
+  {
+    "id": "epic_saga",
+    "text": "Do you want something **long and epic**?",
+    "conditions": {
+      "duration_ms": { "min": 360000 },
+      "instrumentalness": { "min": 0.3 }
+    }
+  },
+  {
+    "id": "short_attention",
+    "text": "Do you want **short, punchy** tracks?",
+    "conditions": {
+      "duration_ms": { "max": 150000 },
+      "energy": { "min": 0.6 }
+    }
+  },
+  {
+    "id": "beach_day",
+    "text": "Is it a **chill beach day**?",
+    "conditions": {
+      "valence": { "min": 0.7 },
+      "energy": { "min": 0.4, "max": 0.7 },
+      "acousticness": { "min": 0.2 }
+    }
+  },
+  {
+    "id": "jazz_club",
+    "text": "Do you want **smoky jazz club** vibes?",
+    "conditions": {
+      "acousticness": { "min": 0.6 },
+      "instrumentalness": { "min": 0.4 },
+      "energy": { "max": 0.5 }
+    }
+  },
+  {
+    "id": "glitch_core",
+    "text": "Do you like **chaotic/glitchy** noises?",
+    "conditions": {
+      "acousticness": { "max": 0.1 },
+      "energy": { "min": 0.8 },
+      "danceability": { "min": 0.4, "max": 0.7 }
+    }
+  },
+  {
+    "id": "pure_pop_bliss",
+    "text": "Do you just want **catchy pop perfection**?",
+    "conditions": {
+      "popularity": { "min": 70 },
+      "valence": { "min": 0.6 },
+      "danceability": { "min": 0.6 }
+    }
+  }
+]
