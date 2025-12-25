@@ -243,18 +243,20 @@ function parseSearchIntent(rawQuery) {
 
 function filterEchoes(tracks, descriptor) {
   if (!descriptor || descriptor.length < 3) return tracks;
-  const ECHO_CAP = 3; // Max number of "direct matches" allowed at the top
+  const ECHO_CAP = 3; 
   const keyword = descriptor.toLowerCase();
   
   const echoes = [];
   const implicit = [];
 
   tracks.forEach(t => {
-    const trackNameMatches = t.name.toLowerCase().includes(keyword);
-    // ✅ ADDED: Check artist name as well
-    const artistNameMatches = t.artist.toLowerCase().includes(keyword);
+    // 1. Safely get the raw name strings
+    const trackName = t.name || "";
+    // 2. FIX: Access the raw array structure, not the simple property
+    const artistName = t.artists?.[0]?.name || ""; 
 
-    if (trackNameMatches || artistNameMatches) {
+    // 3. Check both
+    if (trackName.toLowerCase().includes(keyword) || artistName.toLowerCase().includes(keyword)) {
       echoes.push(t);
     } else {
       implicit.push(t);
@@ -263,8 +265,6 @@ function filterEchoes(tracks, descriptor) {
 
   const topEchoes = echoes.slice(0, ECHO_CAP);
   const bottomEchoes = echoes.slice(ECHO_CAP);
-
-  // Puts non-matching ("implicit") tracks first, limiting obvious name matches
   return [...topEchoes, ...implicit, ...bottomEchoes];
 }
 
