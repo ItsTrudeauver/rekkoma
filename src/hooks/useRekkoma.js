@@ -20,21 +20,20 @@ export function useRekkoma() {
     setSeed(searchQuery.toLowerCase());
 
     try {
-      const initialPool = await mineTracks(searchQuery);
+      // FIX: Pass popRange to mineTracks so it can fetch deeper if needed
+      const initialPool = await mineTracks(searchQuery, popRange);
       
-      // 1. FILTER BY POPULARITY SLIDER
-      const filteredPool = initialPool.filter(t => 
-        t.popularity >= popRange.min && t.popularity <= popRange.max
-      );
+      // Note: Filtering is now handled inside mineTracks to ensure we get enough results
+      // even for low popularity ranges.
 
-      if (filteredPool.length === 0) {
+      if (initialPool.length === 0) {
         throw new Error("No tracks found in that popularity range. Try widening the sliders.");
       }
 
-      setPool(filteredPool);
+      setPool(initialPool);
       
       // Generate first question based on the filtered pool
-      const firstQ = getNextQuestion(filteredPool, [], searchQuery.toLowerCase());
+      const firstQ = getNextQuestion(initialPool, [], searchQuery.toLowerCase());
       
       if (firstQ) {
         setQuestion(firstQ);

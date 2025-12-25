@@ -13,10 +13,12 @@ async function getAccessToken() {
     return accessToken;
   }
 
+  // REAL SPOTIFY AUTH URL
+  const authUrl = 'https://accounts.spotify.com/api/token';
   const authString = btoa(`${CLIENT_ID}:${CLIENT_SECRET}`);
   
   try {
-    const response = await axios.post('https://accounts.spotify.com/api/token', 
+    const response = await axios.post(authUrl, 
       new URLSearchParams({ grant_type: 'client_credentials' }),
       {
         headers: {
@@ -31,7 +33,7 @@ async function getAccessToken() {
     return accessToken;
   } catch (error) {
     console.error("Spotify Auth Error:", error);
-    throw new Error("Failed to authenticate with Spotify.");
+    throw new Error("Failed to authenticate with Spotify. Check your VITE_SPOTIFY_CLIENT_ID and SECRET.");
   }
 }
 
@@ -43,10 +45,12 @@ async function getAccessToken() {
 export async function fetchFromSpotify(endpoint, params = {}) {
   const token = await getAccessToken();
   
-  // Use the correct API base URL
-  const url = endpoint.startsWith('http') 
-    ? endpoint 
-    : `https://api.spotify.com/v1/${endpoint}`;
+  // REAL SPOTIFY API BASE URL (V1)
+  const baseURL = 'https://api.spotify.com/v1';
+  
+  // Ensure endpoint format (handle leading slashes)
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = endpoint.startsWith('http') ? endpoint : `${baseURL}${cleanEndpoint}`;
 
   try {
     const response = await axios.get(url, {
@@ -55,8 +59,8 @@ export async function fetchFromSpotify(endpoint, params = {}) {
     });
     return response.data;
   } catch (error) {
-    // Log but don't crash
-    console.warn(`API Error [${endpoint}]:`, error.response?.status);
+    // Log helpful details for debugging
+    console.warn(`API Error [${endpoint}]:`, error.response?.status, error.response?.data?.error?.message);
     return null; 
   }
 }
@@ -68,21 +72,18 @@ export async function fetchArtistGenres(artistIds) {
   const chunks = [];
   const chunkSize = 50;
 
-  // Split into chunks of 50 (Spotify limit)
   for (let i = 0; i < artistIds.length; i += chunkSize) {
     chunks.push(artistIds.slice(i, i + chunkSize));
   }
 
   const artistMap = {};
 
-  // Fetch all chunks in parallel
   const promises = chunks.map(chunk => 
     fetchFromSpotify('artists', { ids: chunk.join(',') })
   );
 
   const results = await Promise.all(promises);
 
-  // Process results
   results.forEach(data => {
     if (data && data.artists) {
       data.artists.forEach(artist => {

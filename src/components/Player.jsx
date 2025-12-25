@@ -39,7 +39,6 @@ export function Player({ track, onClose }) {
 
   const handleReady = () => {
     setIsReady(true);
-    setPlaying(true);
   };
 
   const handleError = () => {

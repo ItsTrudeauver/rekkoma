@@ -53,6 +53,9 @@ function App() {
              <div className="text-accent text-xs font-mono uppercase tracking-widest animate-pulse">
                Constructing Index...
              </div>
+             <div className="text-accent text-xs font-mono tracking-widest animate-pulse">
+               Lower popularity might take longer to look for...
+             </div>
           </div>
         )}
 
