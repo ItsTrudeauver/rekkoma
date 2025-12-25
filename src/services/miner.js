@@ -5,7 +5,7 @@ import ALL_GENRES from '../data/all_genres.json';
 
 // --- CONFIGURATION: LIMITS ---
 const PER_STRATEGY_LIMIT = 50; 
-const INITIAL_LIMIT = 100;
+const INITIAL_LIMIT = 200;
 const MAX_SEARCH_DEPTH = 4; 
 
 // --- CONFIGURATION: COMMUNITY BLOCKLIST ---
@@ -243,16 +243,28 @@ function parseSearchIntent(rawQuery) {
 
 function filterEchoes(tracks, descriptor) {
   if (!descriptor || descriptor.length < 3) return tracks;
-  const ECHO_CAP = 3; 
+  const ECHO_CAP = 3; // Max number of "direct matches" allowed at the top
   const keyword = descriptor.toLowerCase();
+  
   const echoes = [];
   const implicit = [];
+
   tracks.forEach(t => {
-    if (t.name.toLowerCase().includes(keyword)) echoes.push(t);
-    else implicit.push(t);
+    const trackNameMatches = t.name.toLowerCase().includes(keyword);
+    // ✅ ADDED: Check artist name as well
+    const artistNameMatches = t.artist.toLowerCase().includes(keyword);
+
+    if (trackNameMatches || artistNameMatches) {
+      echoes.push(t);
+    } else {
+      implicit.push(t);
+    }
   });
+
   const topEchoes = echoes.slice(0, ECHO_CAP);
   const bottomEchoes = echoes.slice(ECHO_CAP);
+
+  // Puts non-matching ("implicit") tracks first, limiting obvious name matches
   return [...topEchoes, ...implicit, ...bottomEchoes];
 }
 
