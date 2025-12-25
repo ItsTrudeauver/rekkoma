@@ -11,6 +11,8 @@ export function useRekkoma() {
   const [error, setError] = useState(null);
   const [seed, setSeed] = useState(''); 
   const [isExpanding, setIsExpanding] = useState(false);
+  // [FIX] New state to hold the anchored genre
+  const [anchor, setAnchor] = useState(null);
 
   // UPDATED: Accepts popRange argument
   const startGame = useCallback(async (searchQuery, popRange = { min: 0, max: 100 }) => {
@@ -18,19 +20,18 @@ export function useRekkoma() {
     setError(null);
     setHistory([]);
     setSeed(searchQuery.toLowerCase());
+    setAnchor(null); // Reset anchor
 
     try {
-      // FIX: Pass popRange to mineTracks so it can fetch deeper if needed
-      const initialPool = await mineTracks(searchQuery, popRange);
+      // FIX: Destructure the new return object from mineTracks
+      const { tracks: initialPool, anchor: detectedGenre } = await mineTracks(searchQuery, popRange);
       
-      // Note: Filtering is now handled inside mineTracks to ensure we get enough results
-      // even for low popularity ranges.
-
       if (initialPool.length === 0) {
         throw new Error("No tracks found in that popularity range. Try widening the sliders.");
       }
 
       setPool(initialPool);
+      setAnchor(detectedGenre); // Store the anchor
       
       // Generate first question based on the filtered pool
       const firstQ = getNextQuestion(initialPool, [], searchQuery.toLowerCase());
@@ -65,7 +66,8 @@ export function useRekkoma() {
     if (userSaidYes && question.type === 'genre') {
       setIsExpanding(true);
       try {
-        const expandedPool = await expandPool(currentPool, question.value, seed);
+        // [FIX] Pass the anchor to expandPool
+        const expandedPool = await expandPool(currentPool, question.value, seed, anchor);
         currentPool = expandedPool.map(t => ({
           ...t,
           score: t.score !== undefined ? t.score : 0 
@@ -100,7 +102,7 @@ export function useRekkoma() {
     } else {
       setStage('results');
     }
-  }, [pool, question, history, seed]);
+  }, [pool, question, history, seed, anchor]); // Added anchor to dependency array
 
   const reset = useCallback(() => {
     setStage('input');
@@ -109,6 +111,7 @@ export function useRekkoma() {
     setQuestion(null);
     setError(null);
     setSeed('');
+    setAnchor(null);
   }, []);
 
   return { stage, pool, question, error, isExpanding, actions: { startGame, answerQuestion, reset } };
