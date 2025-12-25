@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { SystemAudio } from '../services/sound';
 
 export function SearchInput({ onSearch, isLoading }) {
   const [query, setQuery] = useState('');
@@ -7,9 +8,15 @@ export function SearchInput({ onSearch, isLoading }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (query.trim()) {
+      SystemAudio.click(); // Confirm sound
       // Pass query AND popularity range to the parent
       onSearch(query, popRange);
     }
+  };
+
+  const handleTyping = (e) => {
+    setQuery(e.target.value);
+    SystemAudio.type(); // Mechanical tick
   };
 
   return (
@@ -29,7 +36,7 @@ export function SearchInput({ onSearch, isLoading }) {
           <input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={handleTyping}
             disabled={isLoading}
             className="
               block w-full pl-10 pr-4 py-4
@@ -67,6 +74,7 @@ export function SearchInput({ onSearch, isLoading }) {
                         onChange={(e) => {
                             const val = Number(e.target.value);
                             setPopRange(prev => ({ ...prev, min: Math.min(val, prev.max) }));
+                            SystemAudio.type(); // Zipper effect
                         }}
                         className="flex-1 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-accent"
                     />
@@ -80,6 +88,7 @@ export function SearchInput({ onSearch, isLoading }) {
                         onChange={(e) => {
                             const val = Number(e.target.value);
                             setPopRange(prev => ({ ...prev, max: Math.max(val, prev.min) }));
+                            SystemAudio.type(); // Zipper effect
                         }}
                         className="flex-1 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-accent"
                     />

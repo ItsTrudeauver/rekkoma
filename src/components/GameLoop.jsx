@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRight } from 'lucide-react';
+import { SystemAudio } from '../services/sound';
 
 const ToggleSwitch = ({ value, onChange }) => {
   return (
     <div 
-      onClick={() => onChange(!value)}
+      onClick={() => {
+        SystemAudio.click();
+        onChange(!value);
+      }}
       className="flex items-center gap-4 cursor-pointer group select-none"
     >
       {/* NO Label */}
@@ -42,6 +46,7 @@ export function GameLoop({ pool, question, onAnswer, history }) {
   }, [question]);
 
   const handleNext = () => {
+    SystemAudio.click();
     onAnswer(answer);
   };
 
@@ -78,6 +83,7 @@ export function GameLoop({ pool, question, onAnswer, history }) {
             {/* The NEXT Button (Submit) */}
             <button 
               onClick={handleNext}
+              onMouseEnter={() => SystemAudio.hover()}
               className="group relative px-8 py-3 bg-gray-100 hover:bg-accent text-black transition-all duration-300 rounded-sm overflow-hidden"
             >
               <div className="relative z-10 flex items-center gap-2 font-bold text-xs uppercase tracking-[0.2em]">
