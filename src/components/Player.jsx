@@ -11,11 +11,8 @@ export function Player({ track, onClose }) {
   const [error, setError] = useState(null);
   const [played, setPlayed] = useState(0); 
   const playerRef = useRef(null);
-
-  // NEW: State to trigger Spotify fallback
   const [useSpotify, setUseSpotify] = useState(false);
 
-  // --- 1. LOAD TRACK ---
   useEffect(() => {
     let active = true;
     if (track) {
@@ -24,7 +21,7 @@ export function Player({ track, onClose }) {
       setYoutubeId(null);
       setError(null);
       setPlayed(0);
-      setUseSpotify(false); // Reset fallback
+      setUseSpotify(false);
       setLoadingAudio(true);
 
       fetchVideoId(track).then(id => {
@@ -32,7 +29,6 @@ export function Player({ track, onClose }) {
         if (id) {
             setYoutubeId(id);
         } else {
-            // No YouTube video found? Fallback to Spotify.
             setUseSpotify(true);
         }
         setLoadingAudio(false);
@@ -41,14 +37,12 @@ export function Player({ track, onClose }) {
     return () => { active = false; };
   }, [track]);
 
-  // --- 2. HANDLERS ---
   const handleReady = () => {
     setIsReady(true);
     setPlaying(true);
   };
 
   const handleError = () => {
-    // Instead of showing error text, switch to Spotify Embed
     console.log("YouTube Playback Restricted/Error, switching to Spotify.");
     setUseSpotify(true);
   };
@@ -70,25 +64,21 @@ export function Player({ track, onClose }) {
   if (!track) return null;
 
   return (
-    <div className="h-full flex flex-col relative w-full h-full text-xs">
+    <div className="h-full flex flex-col relative w-full text-xs">
       
-      {/* TOP: PLAYER AREA (YouTube OR Spotify) */}
+      {/* TOP: PLAYER AREA */}
+      {/* Mobile: Takes up ~180px height. Desktop: Takes up full width aspect-ratio */}
       <div className="relative aspect-video w-full bg-black group overflow-hidden shrink-0 border-b border-white/10">
         
         {useSpotify ? (
-          /* SPOTIFY FALLBACK */
           <iframe 
             src={`https://open.spotify.com/embed/track/${track.id}?utm_source=generator&theme=0`} 
-            width="100%" 
-            height="100%" 
-            frameBorder="0" 
-            allowFullScreen="" 
+            width="100%" height="100%" 
+            frameBorder="0" allowFullScreen="" 
             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
-            loading="lazy"
-            className="w-full h-full"
+            loading="lazy" className="w-full h-full"
           />
         ) : (
-          /* STANDARD YOUTUBE PLAYER */
           <>
             {track.image ? (
                 <img src={track.image} className="w-full h-full object-cover opacity-80" alt={track.name} />
@@ -108,7 +98,12 @@ export function Player({ track, onClose }) {
                   onProgress={({ played }) => setPlayed(played)}
                   onEnded={() => setPlaying(false)}
                   width="100%" height="100%"
-                  config={{ youtube: { playerVars: { showinfo: 0, modestbranding: 1, origin: window.location.origin } } }}
+                  // FIX: 'playsinline: 1' is crucial for iOS to prevent fullscreen takeover
+                  config={{ 
+                    youtube: { 
+                      playerVars: { showinfo: 0, modestbranding: 1, origin: window.location.origin, playsinline: 1 } 
+                    } 
+                  }}
                 />
               )}
             </div>
@@ -126,15 +121,8 @@ export function Player({ track, onClose }) {
               </button>
             </div>
             
-            {/* PROGRESS BAR */}
-            <div 
-              className="absolute bottom-0 left-0 right-0 h-1 bg-white/20 cursor-pointer group/seek"
-              onClick={handleSeek}
-            >
-              <div 
-                className="h-full bg-accent transition-all duration-100 ease-linear relative"
-                style={{ width: `${played * 100}%` }}
-              >
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20 cursor-pointer group/seek" onClick={handleSeek}>
+              <div className="h-full bg-accent transition-all duration-100 ease-linear relative" style={{ width: `${played * 100}%` }}>
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full opacity-0 group-hover/seek:opacity-100 shadow" />
               </div>
             </div>
@@ -142,14 +130,20 @@ export function Player({ track, onClose }) {
         )}
       </div>
 
-      {/* INFO AREA (Always Visible) */}
+      {/* INFO AREA */}
       <div className="flex-1 p-4 space-y-3 overflow-y-auto bg-transparent">
-        <div>
-          <h2 className="text-sm font-bold text-white leading-tight truncate pr-4">{track.name}</h2>
-          <p className="text-[10px] text-accent font-bold uppercase tracking-widest truncate">{track.artist}</p>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h2 className="text-sm font-bold text-white leading-tight truncate">{track.name}</h2>
+            <p className="text-[10px] text-accent font-bold uppercase tracking-widest truncate">{track.artist}</p>
+          </div>
+          <button onClick={onClose} className="p-2 -mr-2 -mt-2 text-gray-500 hover:text-white lg:hidden">
+             {/* Close button visible prominently on mobile */}
+             <span className="sr-only">Close</span>
+             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+          </button>
         </div>
 
-        {/* If using Spotify, we assume no 'error' text is needed, but we keep metadata visible */}
         <div className="grid grid-cols-2 gap-2 text-[9px] uppercase tracking-wider text-gray-400 font-mono">
             <div className="p-2 bg-white/5 rounded border border-white/5">
                 <span className="block text-gray-600">Year</span>
@@ -167,8 +161,8 @@ export function Player({ track, onClose }) {
         </div>
       </div>
 
-      <button onClick={onClose} className="p-3 text-[9px] uppercase tracking-[0.2em] text-gray-500 hover:text-white border-t border-white/10 hover:bg-white/5 transition-colors">
-        Close
+      <button onClick={onClose} className="hidden lg:block p-3 text-[9px] uppercase tracking-[0.2em] text-gray-500 hover:text-white border-t border-white/10 hover:bg-white/5 transition-colors text-center w-full">
+        Close Player
       </button>
     </div>
   );

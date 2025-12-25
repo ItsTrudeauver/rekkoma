@@ -1,9 +1,42 @@
-// src/services/miner.js
 import { fetchFromSpotify, fetchArtistGenres } from './spotify';
 import { fetchTrackTags } from './lastfm'; 
 import { getDecade, cleanGenre } from '../utils/cleaning';
+import ALL_GENRES from '../data/all_genres.json';
 
-const INITIAL_LIMIT = 50; 
+// --- CONFIGURATION: LIMITS ---
+const PER_STRATEGY_LIMIT = 50; 
+const INITIAL_LIMIT = 100;
+
+// --- CONFIGURATION: MOOD EXPANSION ---
+// If the user searches ONLY for these moods, we inject these genres to diversify results
+const MOOD_EXPANSIONS = {
+  'sad': ['indie', 'folk', 'pop', 'acoustic'],
+  'chill': ['lo-fi', 'ambient', 'r&b', 'jazz'],
+  'happy': ['pop', 'dance', 'rock', 'indie'],
+  'party': ['dance', 'hip-hop', 'pop', 'house'],
+  'relax': ['ambient', 'classical', 'lo-fi'],
+  'focus': ['classical', 'ambient', 'instrumental'],
+  'workout': ['hip-hop', 'dance', 'rock', 'metal'],
+  'sleep': ['ambient', 'classical', 'piano'],
+  'romantic': ['r&b', 'soul', 'pop'],
+  'summer': ['pop', 'reggae', 'indie']
+};
+
+// --- CONFIGURATION: PREFIX EXPANSION ---
+// Maps common 1-2 letter prefixes to their full country/region names for search
+const COUNTRY_ALIASES = {
+  'j': 'japanese',
+  'k': 'korean',
+  'c': 'chinese',
+  'v': 'vietnamese',
+  't': 'thai',
+  'ph': 'philippines',
+  'ind': 'indonesian',
+  'spa': 'spanish',
+  'fr': 'french',
+  'uk': 'uk',
+  'us': 'usa'
+};
 
 // --- CONFIGURATION: VIBE WEIGHTS ---
 const BLACKLIST = ['seen live', 'favorites', 'owned', 'my library', 'spotify', 'all', 'favorite', 'albums I own', 'unheard'];
@@ -43,27 +76,223 @@ const KEYWORD_WEIGHTS = {
   'synth':       { acousticness: 0.05 }
 };
 
+// --- GENRE PARSING ENGINE ---
+
+let GENRE_LOOKUP = null; 
+let SORTED_KEYS = null;  
+
+/**
+ * Initialize the Fuzzy Matcher
+ */
+function initializeGenreMap() {
+  if (GENRE_LOOKUP) return;
+
+  const map = {};
+  
+  ALL_GENRES.forEach(rawGenre => {
+    const synonyms = rawGenre.split('/').map(s => s.trim());
+    
+    synonyms.forEach(canonical => {
+      const lower = canonical.toLowerCase();
+      const withAnd = lower.replace(/&/g, 'and');
+      
+      const variations = new Set([
+        lower,                                      
+        withAnd,                                    
+        lower.replace(/\s+/g, ''),                  
+        lower.replace(/\s+/g, '-'),                 
+        withAnd.replace(/\s+/g, ''),                
+        withAnd.replace(/\s+/g, '-')                
+      ]);
+
+      variations.forEach(v => {
+        if (v.length > 2) { 
+          map[v] = canonical; 
+        }
+      });
+    });
+  });
+
+  GENRE_LOOKUP = map;
+  SORTED_KEYS = Object.keys(map).sort((a, b) => b.length - a.length);
+}
+
+/**
+ * Fisher-Yates Shuffle
+ * Used to randomize the pool so the "Top 5 Seeds" are different every game.
+ */
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+/**
+ * Check for Country Prefixes (j-rock, k-pop)
+ */
+function checkPrefix(term, map) {
+  const match = term.match(/\b([a-z]{1,3})-([a-z]+)\b/i);
+  if (!match) return null;
+
+  const prefix = match[1].toLowerCase();
+  const stem = match[2].toLowerCase();
+
+  if (COUNTRY_ALIASES[prefix] && map[stem]) {
+    return {
+      country: COUNTRY_ALIASES[prefix],
+      genre: map[stem],
+      originalTerm: match[0]
+    };
+  }
+  return null;
+}
+
+/**
+ * Main Query Parser
+ */
+function parseSearchIntent(rawQuery) {
+  initializeGenreMap();
+
+  let cleanQuery = rawQuery.toLowerCase().replace(/"/g, '').trim();
+  
+  // 1. PREFIX INTERCEPTOR
+  const prefixMatch = checkPrefix(cleanQuery, GENRE_LOOKUP);
+  if (prefixMatch) {
+    const descriptor = cleanQuery.replace(prefixMatch.originalTerm, '').trim();
+    return {
+      query: `${prefixMatch.country} ${descriptor} genre:"${prefixMatch.genre}"`.trim(),
+      type: 'intent_prefix',
+      genreFound: prefixMatch.genre,
+      descriptor: `${prefixMatch.country} ${descriptor}`.trim()
+    };
+  }
+
+  // 2. STANDARD GREEDY MATCH
+  const findGenre = (text) => {
+    for (const key of SORTED_KEYS) {
+      const regex = new RegExp(`(^|\\s|\\-|\\.)${key}($|\\s|\\-|\\.)`, 'i');
+      if (regex.test(text)) {
+        return {
+          genreKey: key,
+          canonicalGenre: GENRE_LOOKUP[key],
+          descriptor: text.replace(key, '').replace(/\s\s+/g, ' ').trim()
+        };
+      }
+    }
+    return null;
+  };
+
+  let match = findGenre(cleanQuery);
+
+  // 3. FALLBACK EXPANSION (e.g. "j indie" -> "japanese indie")
+  if (!match) {
+    let expanded = cleanQuery;
+    Object.entries(COUNTRY_ALIASES).forEach(([alias, full]) => {
+      const aliasRegex = new RegExp(`\\b${alias}\\s`, 'g'); 
+      expanded = expanded.replace(aliasRegex, `${full} `);
+    });
+      
+    if (expanded !== cleanQuery) {
+      match = findGenre(expanded);
+      if (match) {
+        match.descriptor = expanded.replace(match.genreKey, '').replace(/\s\s+/g, ' ').trim();
+      } else {
+        cleanQuery = expanded;
+      }
+    }
+  }
+
+  if (match) {
+    return {
+      query: `${match.descriptor} genre:"${match.canonicalGenre}"`.trim(),
+      type: 'intent_genre',
+      genreFound: match.canonicalGenre,
+      descriptor: match.descriptor
+    };
+  }
+
+  return null;
+}
+
+/**
+ * ANTI-ECHO FILTER
+ * Prevents "Sad" queries from returning 50 songs named "Sad".
+ * Caps the number of tracks that contain the 'descriptor' in their title.
+ */
+function filterEchoes(tracks, descriptor) {
+  if (!descriptor || descriptor.length < 3) return tracks;
+
+  const ECHO_CAP = 3; 
+  const keyword = descriptor.toLowerCase();
+
+  const echoes = [];
+  const implicit = [];
+
+  tracks.forEach(t => {
+    if (t.name.toLowerCase().includes(keyword)) {
+      echoes.push(t);
+    } else {
+      implicit.push(t);
+    }
+  });
+
+  const topEchoes = echoes.slice(0, ECHO_CAP);
+  const bottomEchoes = echoes.slice(ECHO_CAP);
+
+  return [...topEchoes, ...implicit, ...bottomEchoes];
+}
+
 /**
  * 1. MINE TRACKS (Entry Point)
- * Uses "Multiplexed Search" to distinguish Genre vs Artist vs Title.
  */
 export async function mineTracks(seedQuery) {
   console.log(`🌱 SEED MINING: ${seedQuery}`);
   
-  const cleanSeed = seedQuery.replace(/"/g, '');
+  const cleanSeed = seedQuery.replace(/"/g, '').toLowerCase();
+  
+  initializeGenreMap();
+  
+  const intent = parseSearchIntent(cleanSeed);
+  const searches = [];
+  let echoDescriptor = cleanSeed; 
 
-  const searches = [
+  // STRATEGY A: Explicit Genre/Intent Found
+  if (intent) {
+    console.log(`[Miner] Intent Detected: [${intent.genreFound}] -> Query: ${intent.query}`);
+    searches.push({ q: intent.query, type: 'intent_genre', priority: 0 });
+    echoDescriptor = intent.descriptor; 
+  } 
+  // STRATEGY B: Pure Mood
+  else {
+    const detectedMood = Object.keys(MOOD_EXPANSIONS).find(mood => cleanSeed.includes(mood));
+    if (detectedMood) {
+      console.log(`[Miner] Pure Mood Detected: [${detectedMood}] -> Injecting Genres`);
+      MOOD_EXPANSIONS[detectedMood].forEach(genre => {
+        searches.push({ 
+          q: `${cleanSeed} genre:${genre}`, 
+          type: `mood_${detectedMood}_${genre}`, 
+          priority: 0 
+        });
+      });
+      echoDescriptor = detectedMood;
+    }
+  }
+
+  // STRATEGY C: Standard Fallbacks
+  searches.push(
     { q: `genre:"${cleanSeed}"`, type: 'genre', priority: 1 },
     { q: `artist:"${cleanSeed}"`, type: 'artist', priority: 2 },
     { q: cleanSeed, type: 'general', priority: 3 }
-  ];
+  );
 
   const results = await Promise.all(searches.map(async (s) => {
     try {
       const res = await fetchFromSpotify('search', { 
         q: s.q, 
         type: 'track', 
-        limit: 20 
+        limit: PER_STRATEGY_LIMIT 
       });
       return { ...s, items: res?.tracks?.items || [] };
     } catch (e) {
@@ -91,7 +320,19 @@ export async function mineTracks(seedQuery) {
 
   if (allTracks.length === 0) throw new Error("No tracks found.");
 
-  return await hydrateTracks(allTracks.slice(0, INITIAL_LIMIT));
+  // --- 1. APPLY ANTI-ECHO FILTER ---
+  // Re-order the raw list to hide title spam
+  const filteredTracks = filterEchoes(allTracks, echoDescriptor);
+
+  // --- 2. SELECT CANDIDATES ---
+  // Take the top N most relevant (filtered) tracks
+  const topCandidates = filteredTracks.slice(0, INITIAL_LIMIT);
+
+  // --- 3. INJECT ENTROPY ---
+  // Shuffle them so the "Top 5" seeds for expansion are different every time
+  const shuffledCandidates = shuffleArray(topCandidates);
+
+  return await hydrateTracks(shuffledCandidates);
 }
 
 /**
@@ -238,7 +479,7 @@ async function hydrateTracks(rawTracks) {
       release_date: track.album?.release_date || '2000',
       decade: getDecade(track.album?.release_date),
       
-      // 🔴 FIX: Deduplicate genres to prevent React unique key errors
+      // Fix: Deduplicate genres to prevent React unique key errors
       genres: [...new Set([...genres, ...tags])], 
       
       popularity: track.popularity || 0,

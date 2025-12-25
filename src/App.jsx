@@ -14,21 +14,18 @@ function App() {
     window.scrollTo(0, 0);
   }, [stage]);
 
-  // If the game ends, clean up the player track if it's not in the final results? 
-  // Actually, usually users want to keep listening. We leave it.
-
   return (
     <Layout background={currentTrack?.image}>
       
       {/* MAIN CONTENT AREA 
-          - We add margins to dodge the floating widgets
-          - Left margin for Candidate List (during game)
-          - Right margin for Player (when active)
+          - Mobile: No margins (Centered)
+          - Desktop (lg): Left/Right margins for widgets
       */}
       <div className={`
           relative transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]
           ${stage === 'game' ? 'lg:ml-[280px]' : 'ml-0'} 
           ${currentTrack ? 'lg:mr-[340px]' : 'mr-0'}
+          mb-24 lg:mb-0 /* Add bottom margin on mobile so Player doesn't cover content */
       `}>
         
         {error && (
@@ -38,7 +35,7 @@ function App() {
         )}
 
         {stage === 'input' && (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-12 animate-in fade-in duration-700">
+          <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-12 animate-in fade-in duration-700">
              <div className="space-y-4 text-center max-w-lg">
                 <div className="w-16 h-16 bg-gray-900/50 border border-gray-800 mx-auto flex items-center justify-center mb-6 rounded-full relative group">
                   <div className="absolute inset-0 bg-accent/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -51,7 +48,7 @@ function App() {
         )}
 
         {stage === 'loading' && (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
+          <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-6">
              <div className="w-12 h-12 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
              <div className="text-accent text-xs font-mono uppercase tracking-widest animate-pulse">
                Constructing Index...
@@ -60,14 +57,14 @@ function App() {
         )}
 
         {stage === 'game' && (
-          <div className="max-w-2xl mx-auto py-8">
+          <div className="max-w-2xl mx-auto py-4 lg:py-8">
             <GameLoop 
               pool={pool} 
               question={question} 
               onAnswer={actions.answerQuestion}
               history={pool.filter(t => t.score !== 0)} 
             />
-            <div className="text-center mt-12">
+            <div className="text-center mt-12 pb-12 lg:pb-0">
                <button onClick={actions.reset} className="text-[10px] text-gray-500 hover:text-red-400 uppercase tracking-widest transition-colors">
                   Terminate Session
                </button>
@@ -77,7 +74,7 @@ function App() {
 
         {/* RESULTS GRID */}
         {stage === 'results' && (
-          <div className="max-w-4xl mx-auto pb-24 animate-in slide-in-from-bottom-4 duration-700">
+          <div className="max-w-4xl mx-auto pb-32 lg:pb-24 animate-in slide-in-from-bottom-4 duration-700">
             <div className="bg-gray-950/60 backdrop-blur-xl border border-gray-800/50 rounded-2xl p-6 shadow-2xl overflow-hidden">
               <div className="flex justify-between items-end mb-6 border-b border-gray-800 pb-4">
                 <div>
@@ -114,8 +111,9 @@ function App() {
       </div>
 
       {/* --- FLOATING WIDGET: LIVE CANDIDATES (LEFT) --- */}
-      {/* Only visible during GAME stage */}
+      {/* CHANGE: Hidden on Mobile (hidden), Visible on Desktop (lg:block) */}
       <div className={`
+        hidden lg:block
         fixed top-24 left-6 w-[260px] z-30 
         transition-all duration-500 ease-out
         ${stage === 'game' ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-10 pointer-events-none'}
@@ -131,7 +129,6 @@ function App() {
                   <span className="text-[9px] font-mono text-gray-600 w-3">0{i+1}</span>
                   <div className="flex-1 min-w-0">
                      <div className="h-1 bg-gray-800 rounded-full overflow-hidden mb-1">
-                        {/* Fake score visualization based on index */}
                         <div className="h-full bg-gray-500" style={{ width: `${100 - (i * 15)}%` }} />
                      </div>
                      <p className="text-[10px] text-gray-300 truncate leading-none">{track.name}</p>
@@ -148,12 +145,22 @@ function App() {
         </div>
       </div>
 
-      {/* --- FLOATING WIDGET: PLAYER (RIGHT) --- */}
+      {/* --- FLOATING WIDGET: PLAYER (ADAPTIVE) --- */}
+      {/* MOBILE: Fixed Bottom Sheet (Slide Up from Bottom)
+         DESKTOP: Fixed Right Sidebar (Slide In from Right)
+      */}
       <div className={`
-        fixed top-4 right-4 bottom-4 w-[320px] z-50 
-        bg-gray-950/90 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-2xl overflow-hidden
-        transform transition-transform duration-500 cubic-bezier(0.3, 1, 0.4, 1)
-        ${currentTrack ? 'translate-x-0' : 'translate-x-[120%]'}
+        fixed z-50 
+        bg-gray-950/90 backdrop-blur-2xl border border-white/10 shadow-2xl overflow-hidden
+        transition-transform duration-500 cubic-bezier(0.3, 1, 0.4, 1)
+
+        /* Mobile Styles */
+        bottom-0 left-0 right-0 w-full h-[280px] rounded-t-2xl border-b-0
+        ${currentTrack ? 'translate-y-0' : 'translate-y-[120%]'}
+
+        /* Desktop Styles (Overwrites Mobile) */
+        lg:top-4 lg:right-4 lg:bottom-4 lg:left-auto lg:h-auto lg:w-[320px] lg:rounded-2xl lg:border-b
+        ${currentTrack ? 'lg:translate-x-0 lg:translate-y-0' : 'lg:translate-x-[120%] lg:translate-y-0'}
       `}>
         <Player track={currentTrack} onClose={() => setCurrentTrack(null)} />
       </div>
